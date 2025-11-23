@@ -7,6 +7,10 @@ export class Controls {
   private euler: THREE.Euler;
   private sensitivity: number = 0.002;
   private crosshair: Crosshair;
+  
+  // Track rotation delta for weapon bobbing
+  public rotationDelta = { x: 0, y: 0 };
+  public isRotating = false;
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
@@ -47,16 +51,31 @@ export class Controls {
       const movementX = event.movementX || 0;
       const movementY = event.movementY || 0;
 
+      // Track rotation delta for weapon bobbing
+      this.rotationDelta.x = movementX;
+      this.rotationDelta.y = movementY;
+      this.isRotating = Math.abs(movementX) > 0 || Math.abs(movementY) > 0;
+
       this.euler.setFromQuaternion(this.camera.quaternion);
       
       this.euler.y -= movementX * this.sensitivity;
       this.euler.x -= movementY * this.sensitivity;
       
-      // Clamp vertical rotation to prevent gimbal lock
-      this.euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.euler.x));
+      // Clamp vertical rotation to prevent gimbal lock (max 90 degrees up/down)
+      const PI_2 = Math.PI / 2;
+      this.euler.x = Math.max(-PI_2 + 0.01, Math.min(PI_2 - 0.01, this.euler.x));
       
       this.camera.quaternion.setFromEuler(this.euler);
     });
+  }
+  
+  /**
+   * Reset rotation delta (call this after using it for weapon bobbing)
+   */
+  public resetRotationDelta(): void {
+    this.rotationDelta.x = 0;
+    this.rotationDelta.y = 0;
+    this.isRotating = false;
   }
 
   public isPointerLocked(): boolean {

@@ -24,7 +24,7 @@ async function init() {
   await scene.setPhysics(physics);
   
   // Create player with scene reference
-  player = new Player(physics, camera.getCamera(), scene.getScene());
+  player = new Player(physics, camera.getCamera());
   
   // Start animation loop
   renderer.instance.setAnimationLoop(animate);
@@ -44,8 +44,20 @@ function animate(time: number): void {
   // Update scene
   scene.update();
   
+  // Update weapon with player velocity and ground state
+  camera.updateWeapon(deltaTime, player.getVelocity(), player.isOnGround());
+  
+  // Apply rotation bobbing to weapon
+  if (controls.isRotating) {
+    camera.addWeaponRotationBobbing(controls.rotationDelta);
+  }
+  controls.resetRotationDelta();
+  
   // Render main scene
   renderer.render(scene.getScene(), camera.getCamera());
+  
+  // Render weapon on top
+  renderer.renderWeapon(camera.viewmodelRenderer.scene, camera.viewmodelRenderer.camera);
 }
 
 // Start the game

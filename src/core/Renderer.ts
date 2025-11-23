@@ -8,6 +8,7 @@ export class Renderer {
     this.instance.setSize(window.innerWidth, window.innerHeight);
     this.instance.shadowMap.enabled = true;
     this.instance.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.instance.autoClear = false; // Manual clearing for multi-pass rendering
     
     document.body.appendChild(this.instance.domElement);
 
@@ -18,8 +19,19 @@ export class Renderer {
     this.instance.setSize(window.innerWidth, window.innerHeight);
   }
 
+  /**
+   * Render main scene
+   */
   public render(scene: THREE.Scene, camera: THREE.Camera): void {
-    this.instance.clear();
+    this.instance.clear(); // Clear both color and depth
+    this.instance.render(scene, camera);
+  }
+  
+  /**
+   * Render weapon scene on top (with depth clear)
+   */
+  public renderWeapon(scene: THREE.Scene, camera: THREE.Camera): void {
+    this.instance.clearDepth(); // Clear only depth buffer, keep color
     this.instance.render(scene, camera);
   }
 
