@@ -28,12 +28,6 @@ export class Camera {
   }
   
   private async loadWeapon(): Promise<void> {
-    // Load arms first
-    await this.weapon.loadArms('/models/cartoon_fps_arms.glb');
-    if (this.weapon.armsMesh) {
-      this.viewmodelRenderer.addWeapon(this.weapon.armsMesh);
-    }
-
     // Load weapon
     await this.weapon.load('/models/AssaultRifle_2.glb');
     
@@ -41,7 +35,7 @@ export class Camera {
       // Add weapon to viewmodel camera (as child)
       this.viewmodelRenderer.addWeapon(this.weapon.mesh);
       this.weaponLoaded = true;
-      console.log('Weapon and arms loaded and added to viewmodel camera');
+      console.log('Weapon loaded and added to viewmodel camera');
     }
   }
 

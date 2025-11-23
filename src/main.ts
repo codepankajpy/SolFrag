@@ -41,6 +41,11 @@ function animate(time: number): void {
   // Update player
   player.update(deltaTime);
   
+  // Check for shooting and trigger recoil
+  if (player.shouldShoot()) {
+    camera.triggerWeaponRecoil(0.08);
+  }
+  
   // Update scene
   scene.update();
   

@@ -7,7 +7,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
  */
 export class Weapon {
   public mesh: THREE.Group | null = null;
-  public armsMesh: THREE.Group | null = null;
   private loader: GLTFLoader;
   
   // Base position and rotation (relative to camera)
@@ -15,7 +14,7 @@ export class Weapon {
   public baseRotation = new THREE.Euler(0, Math.PI * 0.5, 0);
   
   // Weapon bobbing state
-  private bobbingAmount = 0.002;
+  private bobbingAmount = 0.001; // Reduced to half (was 0.002)
   private bobbingSpeed = 10;
   private bobbingAccumulator = new THREE.Vector3(0, 0, 0);
   private moveTime = 0;
@@ -61,34 +60,6 @@ export class Weapon {
   }
 
   /**
-   * Load arms model (optional)
-   */
-  public async loadArms(modelPath: string): Promise<void> {
-    try {
-      const gltf = await this.loader.loadAsync(modelPath);
-      this.armsMesh = gltf.scene;
-      
-      // Configure arms mesh
-      this.armsMesh.scale.set(0.15, 0.15, 0.15);
-      this.armsMesh.position.copy(this.basePosition);
-      this.armsMesh.rotation.copy(this.baseRotation);
-      
-      // Prevent depth issues and disable shadows
-      this.armsMesh.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.frustumCulled = false;
-          child.castShadow = false;
-          child.receiveShadow = false;
-        }
-      });
-      
-      console.log('Arms loaded successfully:', modelPath);
-    } catch (error) {
-      console.error('Error loading arms:', error);
-    }
-  }
-
-  /**
    * Update weapon position and rotation based on movement and time
    */
   public update(deltaTime: number, playerVelocity: THREE.Vector3, isOnGround: boolean): void {
@@ -99,8 +70,8 @@ export class Weapon {
     const speed = new THREE.Vector2(this.velocity.x, this.velocity.z).length();
     this.isMoving = speed > 0.1 && isOnGround;
 
-    // Disable bobbing for now
-    // this.updateBobbing(deltaTime);
+    // Update bobbing with reduced intensity
+    this.updateBobbing(deltaTime);
     
     // Update recoil recovery
     this.updateRecoil(deltaTime);
@@ -159,19 +130,14 @@ export class Weapon {
       this.baseRotation.y + this.bobbingAccumulator.x * 2,
       this.baseRotation.z - this.bobbingAccumulator.x
     );
-
-    // Apply same transformations to arms if they exist
-    if (this.armsMesh) {
-      this.armsMesh.position.copy(this.mesh.position);
-      this.armsMesh.rotation.copy(this.mesh.rotation);
-    }
   }
 
   /**
-   * Trigger recoil effect
+   * Trigger recoil effect (accumulates for rapid fire)
    */
   public triggerRecoil(amount: number = 0.05): void {
-    this.recoilOffset = amount;
+    this.recoilOffset += amount; // Accumulate recoil
+    this.recoilOffset = Math.min(this.recoilOffset, 0.2); // Cap max recoil
   }
 
   /**
@@ -180,10 +146,10 @@ export class Weapon {
   public addRotationBobbing(rotationDelta: { x: number; y: number }): void {
     if (!this.mesh) return;
     
-    // Disabled for now
-    // const sensitivity = 0.001;
-    // this.bobbingAccumulator.x += rotationDelta.x * sensitivity;
-    // this.bobbingAccumulator.y += rotationDelta.y * sensitivity;
+    // Reduced sensitivity to half
+    const sensitivity = 0.0005; // Was 0.001
+    this.bobbingAccumulator.x += rotationDelta.x * sensitivity;
+    this.bobbingAccumulator.y += rotationDelta.y * sensitivity;
   }
 
   /**

@@ -24,6 +24,7 @@ export class Player {
   private moveLeft = false;
   private moveRight = false;
   private canJump = false;
+  private jumpKeyPressed = false; // Track if space is being held
   
   // Shooting state
   private isShooting = false;
@@ -110,7 +111,11 @@ export class Player {
           this.moveRight = true;
           break;
         case 'Space':
-          if (this.canJump) this.jump();
+          // Only jump if key wasn't already pressed (prevents holding space to fly)
+          if (!this.jumpKeyPressed && this.canJump) {
+            this.jump();
+          }
+          this.jumpKeyPressed = true;
           break;
       }
     });
@@ -141,6 +146,9 @@ export class Player {
           break;
         case 'KeyD':
           this.moveRight = false;
+          break;
+        case 'Space':
+          this.jumpKeyPressed = false;
           break;
       }
     });
