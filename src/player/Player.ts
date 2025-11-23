@@ -7,7 +7,7 @@ export class Player {
   private readonly HEIGHT = 1.8;
   private readonly RADIUS = 0.3;
   private readonly CAMERA_HEIGHT = 1.65;
-  private readonly WALK_SPEED = 5.2;
+  private readonly WALK_SPEED = 6.864; // Increased by 10% from 6.24
   private readonly JUMP_HEIGHT = 1.1;
   
   // Physics
