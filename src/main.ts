@@ -41,21 +41,26 @@ function animate(time: number): void {
   // Update player
   player.update(deltaTime);
   
-  // Check for shooting and trigger recoil
+  // Check for shooting and trigger all effects
   if (player.shouldShoot()) {
-    camera.triggerWeaponRecoil(0.08);
+    camera.shoot();
+    controls.createRecoil();
   }
+  
+  // Update camera recoil recovery
+  controls.updateRecoil();
   
   // Update scene
   scene.update();
   
-  // Update weapon with player velocity and ground state
-  camera.updateWeapon(deltaTime, player.getVelocity(), player.isOnGround());
+  // Calculate if player is moving
+  const velocity = player.getVelocity();
+  const isMoving = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z) > 0.1;
   
-  // Apply rotation bobbing to weapon
-  if (controls.isRotating) {
-    camera.addWeaponRotationBobbing(controls.rotationDelta);
-  }
+  // Update weapon with all parameters
+  camera.updateWeapon(deltaTime, velocity, isMoving, controls.rotationDelta);
+  
+  // Reset rotation delta after using it
   controls.resetRotationDelta();
   
   // Render main scene

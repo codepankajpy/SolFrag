@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { ViewmodelRenderer } from '../view/ViewmodelRenderer';
-import { Weapon } from '../weapon/Weapon';
+import { WeaponSystem } from '../weapon/WeaponSystem';
+import { AudioManager } from '../audio/AudioManager';
 
 export class Camera {
   public instance: THREE.PerspectiveCamera;
   public viewmodelRenderer: ViewmodelRenderer;
-  public weapon: Weapon;
+  public weaponSystem: WeaponSystem;
+  public audioManager: AudioManager;
   private weaponLoaded = false;
 
   constructor() {
@@ -18,56 +20,65 @@ export class Camera {
     // Create viewmodel renderer for weapon
     this.viewmodelRenderer = new ViewmodelRenderer(60);
     
-    // Create weapon instance
-    this.weapon = new Weapon();
+    // Create weapon system
+    this.weaponSystem = new WeaponSystem();
+    
+    // Create audio manager
+    this.audioManager = new AudioManager(this.instance);
 
     window.addEventListener('resize', this.onResize.bind(this));
     
-    // Load weapon model
-    this.loadWeapon();
+    // Load weapon, arms, and sounds
+    this.loadWeaponSystem();
   }
   
-  private async loadWeapon(): Promise<void> {
-    // Load weapon
-    await this.weapon.load('/models/AssaultRifle_2.glb');
+  private async loadWeaponSystem(): Promise<void> {
+    // Load weapon sound
+    await this.audioManager.loadSound('ak47-shot', '/sounds/ak47-shot.wav');
     
-    if (this.weapon.mesh) {
-      // Add weapon to viewmodel camera (as child)
-      this.viewmodelRenderer.addWeapon(this.weapon.mesh);
+    // Load weapon (arms are included in the FPS weapon model)
+    await this.weaponSystem.loadWeapon(
+      '/models/AssaultRifle_2.glb',
+      new THREE.Vector3(0.15, -0.12, -0.15)
+    );
+    
+    if (this.weaponSystem.weaponMesh) {
+      this.viewmodelRenderer.addWeapon(this.weaponSystem.weaponMesh.mesh);
+      this.weaponSystem.initPosition();
       this.weaponLoaded = true;
-      console.log('Weapon loaded and added to viewmodel camera');
+      console.log('Weapon system loaded completely');
     }
   }
 
   /**
-   * Update weapon position and sync viewmodel camera with main camera
+   * Update weapon with all effects
    */
-  public updateWeapon(deltaTime: number, playerVelocity: THREE.Vector3, isOnGround: boolean): void {
+  public updateWeapon(
+    deltaTime: number,
+    playerVelocity: THREE.Vector3,
+    isMoving: boolean,
+    rotationDelta: { x: number; y: number }
+  ): void {
     if (!this.weaponLoaded) return;
     
     // Sync viewmodel camera rotation with main camera
     this.viewmodelRenderer.syncWithCamera(this.instance);
     
-    // Update weapon bobbing and animations
-    this.weapon.update(deltaTime, playerVelocity, isOnGround);
+    // Update weapon system
+    this.weaponSystem.update(deltaTime, playerVelocity, isMoving, rotationDelta);
   }
 
   /**
-   * Add rotation-based bobbing to weapon
+   * Trigger weapon shoot with all effects
    */
-  public addWeaponRotationBobbing(rotationDelta: { x: number; y: number }): void {
-    if (this.weaponLoaded) {
-      this.weapon.addRotationBobbing(rotationDelta);
-    }
-  }
-
-  /**
-   * Trigger weapon recoil effect
-   */
-  public triggerWeaponRecoil(amount: number = 0.05): void {
-    if (this.weaponLoaded) {
-      this.weapon.triggerRecoil(amount);
-    }
+  public shoot(): void {
+    if (!this.weaponLoaded) return;
+    
+    // Play shoot animation
+    this.weaponSystem.shoot();
+    
+    // Play sound
+    this.audioManager.playSound('ak47-shot', 0.3);
   }
 
   private onResize(): void {

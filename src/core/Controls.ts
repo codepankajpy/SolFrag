@@ -11,6 +11,11 @@ export class Controls {
   // Track rotation delta for weapon bobbing
   public rotationDelta = { x: 0, y: 0 };
   public isRotating = false;
+  
+  // Camera recoil system (enari-engine pattern)
+  private recoilIndex = 1;
+  private yawDirection = -1;
+  private recoilAccumulation = new THREE.Vector3(0, 0, 0);
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
@@ -76,6 +81,51 @@ export class Controls {
     this.rotationDelta.x = 0;
     this.rotationDelta.y = 0;
     this.isRotating = false;
+  }
+
+  /**
+   * Check if can reset recoil (for smooth recovery)
+   */
+  public canResetRecoil(): boolean {
+    return this.recoilIndex > 1;
+  }
+
+  /**
+   * Create camera recoil effect (enari-engine pattern)
+   */
+  public createRecoil(): void {
+    this.yawDirection = Math.random() <= 0.1 ? -this.yawDirection : this.yawDirection;
+
+    // Pitch damping function
+    const pitchDampingFunction = (x: number): number => {
+      const c = 1.2;
+      return c * x * Math.exp(1 - c * x);
+    };
+
+    // Yaw damping function
+    const yawDampingFunction = (x: number): number => {
+      const c = 0.6;
+      let x2 = 5 - (x % 5);
+      return c * x2 * Math.exp(1 - c * x2);
+    };
+
+    const pitch = pitchDampingFunction(this.recoilIndex / 2) / 30;
+    const yaw = (yawDampingFunction(this.recoilIndex) / 50) * this.yawDirection;
+
+    // Apply recoil to camera
+    this.camera.rotateX(pitch);
+    this.camera.rotateY(yaw);
+    
+    this.recoilIndex++;
+  }
+
+  /**
+   * Update recoil recovery
+   */
+  public updateRecoil(): void {
+    if (this.canResetRecoil() && this.recoilIndex > 1) {
+      this.recoilIndex--;
+    }
   }
 
   public isPointerLocked(): boolean {
