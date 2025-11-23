@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { Physics } from '../physics/Physics';
+import { CharacterModel } from './CharacterModel';
+import { HandWeapon } from '../game/HandWeapon';
 
 export class Player {
   // Player specifications
@@ -18,6 +20,13 @@ export class Player {
   // Camera
   private camera: THREE.PerspectiveCamera;
   
+  // Character model
+  private characterModel: CharacterModel;
+  private scene: THREE.Scene;
+  
+  // Weapon
+  private handWeapon: HandWeapon;
+  
   // Movement state
   private moveForward = false;
   private moveBackward = false;
@@ -29,9 +38,41 @@ export class Player {
   private velocity = new THREE.Vector3();
   private direction = new THREE.Vector3();
 
-  constructor(physics: Physics, camera: THREE.PerspectiveCamera) {
+  constructor(physics: Physics, camera: THREE.PerspectiveCamera, scene: THREE.Scene) {
     this.physics = physics;
     this.camera = camera;
+    this.scene = scene;
+    this.characterModel = new CharacterModel();
+    this.handWeapon = new HandWeapon();
+    
+    this.init();
+  }
+
+  private async init(): Promise<void> {
+    // Load character model with rigging
+    const model = await this.characterModel.load('/models/character.glb');
+    
+    if (model) {
+      // Scale character to match player height (1.8m)
+      this.characterModel.setScale(this.HEIGHT);
+      
+      this.scene.add(model);
+      console.log(`Character model loaded and scaled to ${this.HEIGHT}m`);
+      
+      // Load and attach weapon to right hand first
+      await this.loadWeapon();
+      
+      // Then hide character body (but weapon will stay visible)
+      model.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh || child instanceof THREE.Mesh) {
+          // Hide the character mesh but keep bones and weapon visible
+          if (!child.name.includes('weapon') && !child.name.includes('gun')) {
+            child.visible = false;
+          }
+        }
+      });
+      console.log('Character body hidden for first-person view');
+    }
     
     this.createPlayerBody();
     this.setupKeyboardControls();
@@ -150,13 +191,61 @@ export class Player {
       z: this.velocity.z 
     }, true);
 
-    // Update camera position to follow player
+    // Update character model position to match physics body
     const playerPos = this.rigidBody.translation();
-    this.camera.position.set(
-      playerPos.x,
-      playerPos.y + this.CAMERA_HEIGHT,
-      playerPos.z
-    );
+    
+    if (this.characterModel.getModel()) {
+      this.characterModel.setPosition(playerPos.x, playerPos.y - this.HEIGHT / 2, playerPos.z);
+      
+      // Rotate character to face movement direction
+      if (this.direction.length() > 0) {
+        const angle = Math.atan2(this.direction.x, this.direction.z);
+        this.characterModel.setRotation(0, angle, 0);
+      }
+      
+      // Update character animations
+      this.characterModel.update(deltaTime);
+    }
+
+    // Update camera position - use head bone if available, otherwise eye height
+    const headBone = this.characterModel.getHead();
+    if (headBone) {
+      // Get world position of head bone
+      const headWorldPos = new THREE.Vector3();
+      headBone.getWorldPosition(headWorldPos);
+      this.camera.position.copy(headWorldPos);
+    } else {
+      // Fallback to calculated eye height
+      this.camera.position.set(
+        playerPos.x,
+        playerPos.y + this.CAMERA_HEIGHT,
+        playerPos.z
+      );
+    }
+  }
+
+  private async loadWeapon(): Promise<void> {
+    // Load weapon model
+    await this.handWeapon.loadWeapon('/models/ak47.glb');
+    
+    // Get right hand bone from character
+    const rightHand = this.characterModel.getRightHand();
+    
+    if (rightHand) {
+      // Attach weapon to hand
+      this.handWeapon.attachToHand(rightHand);
+      
+      // Adjust weapon position, rotation, and scale to fit hand properly
+      // These values will need fine-tuning based on the specific models
+      const weaponPosition = new THREE.Vector3(0, 0, 0);
+      const weaponRotation = new THREE.Euler(0, Math.PI / 2, 0);
+      const weaponScale = 0.8; // Scale relative to character model
+      
+      this.handWeapon.adjustWeaponTransform(weaponPosition, weaponRotation, weaponScale);
+      console.log('✓ Weapon loaded and attached to right hand');
+    } else {
+      console.error('✗ Could not find right hand bone to attach weapon');
+    }
   }
 
   public getPosition(): THREE.Vector3 {

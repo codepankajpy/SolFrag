@@ -19,6 +19,7 @@ export class Renderer {
   }
 
   public render(scene: THREE.Scene, camera: THREE.Camera): void {
+    this.instance.clear();
     this.instance.render(scene, camera);
   }
 

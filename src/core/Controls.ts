@@ -1,14 +1,17 @@
 import * as THREE from 'three';
+import { Crosshair } from '../ui/Crosshair';
 
 export class Controls {
   private camera: THREE.PerspectiveCamera;
   private isLocked: boolean = false;
   private euler: THREE.Euler;
   private sensitivity: number = 0.002;
+  private crosshair: Crosshair;
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
     this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    this.crosshair = new Crosshair();
     
     this.setupPointerLock();
     this.setupMouseMovement();
@@ -23,6 +26,13 @@ export class Controls {
 
     document.addEventListener('pointerlockchange', () => {
       this.isLocked = document.pointerLockElement === document.body;
+      
+      // Show/hide crosshair based on pointer lock
+      if (this.isLocked) {
+        this.crosshair.show();
+      } else {
+        this.crosshair.hide();
+      }
     });
 
     document.addEventListener('pointerlockerror', () => {

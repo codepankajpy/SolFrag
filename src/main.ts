@@ -23,8 +23,8 @@ async function init() {
   // Setup physics for scene (will try to load map)
   await scene.setPhysics(physics);
   
-  // Create player
-  player = new Player(physics, camera.getCamera());
+  // Create player with scene reference
+  player = new Player(physics, camera.getCamera(), scene.getScene());
   
   // Start animation loop
   renderer.instance.setAnimationLoop(animate);
@@ -44,7 +44,7 @@ function animate(time: number): void {
   // Update scene
   scene.update();
   
-  // Render
+  // Render main scene
   renderer.render(scene.getScene(), camera.getCamera());
 }
 
