@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { Physics } from '../physics/Physics';
 
 export class MapLoader {
@@ -8,6 +9,12 @@ export class MapLoader {
 
   constructor(physics: Physics) {
     this.loader = new GLTFLoader();
+    
+    // Setup Draco loader for compressed models
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    this.loader.setDRACOLoader(dracoLoader);
+    
     this.physics = physics;
   }
 

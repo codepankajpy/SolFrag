@@ -22,7 +22,7 @@ export class Scene {
     this.mapLoader = new MapLoader(physics);
     
     // Try to load the invasion map
-    const map = await this.mapLoader.loadMap('/models/invasion.glb');
+    const map = await this.mapLoader.loadMap('/models/compressed_invasion.glb');
     
     if (map) {
       this.instance.add(map);
