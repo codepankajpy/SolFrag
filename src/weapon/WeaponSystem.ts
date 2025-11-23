@@ -26,6 +26,11 @@ export class WeaponSystem {
   // Switch animation
   private switchVelocity = 0;
 
+  // Muzzle flash
+  private muzzleFlash?: THREE.Sprite;
+  private muzzleFlashDuration = 0;
+  private muzzleFlashMaxDuration = 0.05; // 50ms flash
+
   constructor() {}
 
   /**
@@ -34,6 +39,9 @@ export class WeaponSystem {
   public async loadWeapon(path: string, viewmodelOffset?: THREE.Vector3): Promise<void> {
     this.weaponMesh = new FPSMesh(path, viewmodelOffset);
     await this.weaponMesh.load();
+    
+    // Create muzzle flash sprite
+    this.createMuzzleFlash();
   }
 
   /**
@@ -103,6 +111,14 @@ export class WeaponSystem {
       this.recoilEffect = Math.max(0, this.recoilEffect);
     }
 
+    // Update muzzle flash
+    if (this.muzzleFlashDuration > 0) {
+      this.muzzleFlashDuration -= deltaTime;
+      if (this.muzzleFlashDuration <= 0 && this.muzzleFlash) {
+        this.muzzleFlash.visible = false;
+      }
+    }
+
     // Update switch animation
     this.switchVelocity += deltaTime * 4;
     if (this.switchVelocity >= -this.weaponOffset.y / 2) {
@@ -125,6 +141,15 @@ export class WeaponSystem {
       this.weaponMesh.playAnimation('Shoot');
     }
     this.recoilEffect = 0.1;
+    
+    // Show muzzle flash
+    if (this.muzzleFlash) {
+      this.muzzleFlash.visible = true;
+      this.muzzleFlashDuration = this.muzzleFlashMaxDuration;
+      
+      // Randomize rotation for variety
+      this.muzzleFlash.material.rotation = Math.random() * Math.PI * 2;
+    }
   }
 
   /**
@@ -151,5 +176,34 @@ export class WeaponSystem {
    */
   private lerp(start: number, end: number, t: number): number {
     return start + (end - start) * t;
+  }
+
+  /**
+   * Create muzzle flash sprite
+   */
+  private createMuzzleFlash(): void {
+    const textureLoader = new THREE.TextureLoader();
+    const flashTexture = textureLoader.load('/textures/fire.png');
+    
+    const spriteMaterial = new THREE.SpriteMaterial({
+      map: flashTexture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    
+    this.muzzleFlash = new THREE.Sprite(spriteMaterial);
+    this.muzzleFlash.scale.set(0.1, 0.1, 0.1); // Small flash
+    this.muzzleFlash.visible = false;
+    
+    // Position at muzzle tip (end of barrel)
+    this.muzzleFlash.position.set(0.15, -0.05, -0.65);
+  }
+
+  /**
+   * Get muzzle flash for adding to scene
+   */
+  public getMuzzleFlash(): THREE.Sprite | undefined {
+    return this.muzzleFlash;
   }
 }

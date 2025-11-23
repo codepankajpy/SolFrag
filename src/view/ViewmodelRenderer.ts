@@ -47,14 +47,14 @@ export class ViewmodelRenderer {
   /**
    * Add a weapon mesh to the viewmodel camera (so it moves with camera)
    */
-  public addWeapon(weapon: THREE.Group | THREE.Mesh): void {
+  public addWeapon(weapon: THREE.Group | THREE.Mesh | THREE.Sprite): void {
     this.camera.add(weapon);
   }
 
   /**
    * Remove a weapon mesh from the viewmodel camera
    */
-  public removeWeapon(weapon: THREE.Group | THREE.Mesh): void {
+  public removeWeapon(weapon: THREE.Group | THREE.Mesh | THREE.Sprite): void {
     this.camera.remove(weapon);
   }
 

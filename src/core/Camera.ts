@@ -45,6 +45,13 @@ export class Camera {
     if (this.weaponSystem.weaponMesh) {
       this.viewmodelRenderer.addWeapon(this.weaponSystem.weaponMesh.mesh);
       this.weaponSystem.initPosition();
+      
+      // Add muzzle flash to viewmodel scene
+      const muzzleFlash = this.weaponSystem.getMuzzleFlash();
+      if (muzzleFlash) {
+        this.viewmodelRenderer.addWeapon(muzzleFlash);
+      }
+      
       this.weaponLoaded = true;
       console.log('Weapon system loaded completely');
     }
