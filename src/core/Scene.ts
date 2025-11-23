@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Physics } from '../physics/Physics';
 import { MapLoader } from '../game/MapLoader';
+import { BulletHoleManager } from '../effects/BulletHoleManager';
 
 export class Scene {
   public instance: THREE.Scene;
@@ -8,10 +9,12 @@ export class Scene {
   private groundBody: any = null;
   private mapLoader: MapLoader | null = null;
   private mapLoaded: boolean = false;
+  public bulletHoleManager: BulletHoleManager;
 
   constructor() {
     this.instance = new THREE.Scene();
     this.setupScene();
+    this.bulletHoleManager = new BulletHoleManager(this.instance);
   }
 
   public async setPhysics(physics: Physics): Promise<void> {

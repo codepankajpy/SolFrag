@@ -45,6 +45,7 @@ function animate(time: number): void {
   if (player.shouldShoot()) {
     camera.shoot();
     controls.createRecoil();
+    scene.bulletHoleManager.shootRay(camera.getCamera());
   }
   
   // Update camera recoil recovery
@@ -52,6 +53,9 @@ function animate(time: number): void {
   
   // Update scene
   scene.update();
+  
+  // Update bullet holes
+  scene.bulletHoleManager.update();
   
   // Calculate if player is moving
   const velocity = player.getVelocity();

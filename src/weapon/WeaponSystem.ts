@@ -193,11 +193,11 @@ export class WeaponSystem {
     });
     
     this.muzzleFlash = new THREE.Sprite(spriteMaterial);
-    this.muzzleFlash.scale.set(0.1, 0.1, 0.1); // Small flash
+    this.muzzleFlash.scale.set(0.05, 0.05, 0.05); // Small flash
     this.muzzleFlash.visible = false;
     
     // Position at muzzle tip (end of barrel)
-    this.muzzleFlash.position.set(0.15, -0.05, -0.65);
+    this.muzzleFlash.position.set(0.15, -0.05, -0.6);
   }
 
   /**
