@@ -27,6 +27,10 @@ export class Scene {
     if (map) {
       this.instance.add(map);
       this.mapLoaded = true;
+      
+      // Register map for raycasting (optimize: only raycast against map, not weapons)
+      this.bulletHoleManager.setRaycastTargets([map]);
+      
       console.log('Invasion map loaded successfully');
     } else {
       // Fallback to basic scene with colliders
@@ -83,7 +87,7 @@ export class Scene {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     this.instance.add(ambientLight);
 
-    // Add directional light with shadows
+    // Add directional light with shadows (optimized settings)
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 10, 5);
     directionalLight.castShadow = true;
@@ -93,8 +97,9 @@ export class Scene {
     directionalLight.shadow.camera.bottom = -20;
     directionalLight.shadow.camera.near = 0.5;
     directionalLight.shadow.camera.far = 50;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
+    // Reduced shadow map size for better performance (was 2048)
+    directionalLight.shadow.mapSize.width = 1024;
+    directionalLight.shadow.mapSize.height = 1024;
     this.instance.add(directionalLight);
 
     // Add fallback ground (will be visible if map doesn't load)

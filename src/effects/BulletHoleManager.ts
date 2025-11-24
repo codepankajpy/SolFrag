@@ -9,6 +9,11 @@ export class BulletHoleManager {
   private bulletHoleLifetime = 5000; // 5 seconds
   private bulletHoleTexture?: THREE.Texture;
   private raycaster: THREE.Raycaster;
+  private raycastTargets: THREE.Object3D[] = []; // Only raycast against these
+  
+  // Reusable vectors to reduce GC pressure
+  private tempVector = new THREE.Vector3();
+  private tempNormal = new THREE.Vector3();
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -25,14 +30,22 @@ export class BulletHoleManager {
   }
 
   /**
+   * Register objects that can be hit by bullets (call after map loads)
+   */
+  public setRaycastTargets(targets: THREE.Object3D[]): void {
+    this.raycastTargets = targets;
+  }
+
+  /**
    * Cast a ray from camera and create bullet hole if it hits something
    */
   public shootRay(camera: THREE.Camera): void {
     // Set raycast from center of screen (where crosshair is)
     this.raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
-    // Check intersections with scene objects
-    const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+    // Only raycast against registered targets (map objects, not weapons)
+    const targets = this.raycastTargets.length > 0 ? this.raycastTargets : this.scene.children;
+    const intersects = this.raycaster.intersectObjects(targets, true);
 
     if (intersects.length > 0) {
       const hit = intersects[0];

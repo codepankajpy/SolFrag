@@ -4,10 +4,16 @@ export class Renderer {
   public instance: THREE.WebGLRenderer;
 
   constructor() {
-    this.instance = new THREE.WebGLRenderer({ antialias: true });
+    this.instance = new THREE.WebGLRenderer({ 
+      antialias: true,
+      powerPreference: 'high-performance', // Optimize for performance
+    });
     this.instance.setSize(window.innerWidth, window.innerHeight);
+    
+    // Reduce shadow map quality for better performance
     this.instance.shadowMap.enabled = true;
-    this.instance.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.instance.shadowMap.type = THREE.PCFShadowMap; // Faster than PCFSoft
+    
     this.instance.autoClear = false; // Manual clearing for multi-pass rendering
     
     document.body.appendChild(this.instance.domElement);
