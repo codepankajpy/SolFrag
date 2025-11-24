@@ -17,12 +17,22 @@ export class Scene {
     this.bulletHoleManager = new BulletHoleManager(this.instance);
   }
 
-  public async setPhysics(physics: Physics): Promise<void> {
+  public async setPhysics(
+    physics: Physics, 
+    onProgress?: (progress: number, message: string) => void
+  ): Promise<void> {
     this.physics = physics;
     this.mapLoader = new MapLoader(physics);
     
     // Try to load the invasion map
-    const map = await this.mapLoader.loadMap('/models/compressed_invasion.glb');
+    const map = await this.mapLoader.loadMap(
+      '/models/compressed_invasion.glb',
+      (percent) => {
+        if (onProgress) {
+          onProgress(percent, `Loading map... ${Math.round(percent)}%`);
+        }
+      }
+    );
     
     if (map) {
       this.instance.add(map);

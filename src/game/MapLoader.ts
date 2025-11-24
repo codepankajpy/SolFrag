@@ -18,9 +18,20 @@ export class MapLoader {
     this.physics = physics;
   }
 
-  public async loadMap(path: string): Promise<THREE.Group | null> {
+  public async loadMap(
+    path: string, 
+    onProgress?: (progress: number) => void
+  ): Promise<THREE.Group | null> {
     try {
-      const gltf = await this.loader.loadAsync(path);
+      const gltf = await this.loader.loadAsync(
+        path,
+        (progressEvent) => {
+          if (onProgress && progressEvent.total > 0) {
+            const percent = (progressEvent.loaded / progressEvent.total) * 100;
+            onProgress(percent);
+          }
+        }
+      );
       const map = gltf.scene;
 
       // Enable shadows on all meshes
