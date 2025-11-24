@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { Physics } from '../physics/Physics';
+import { PlayerModel } from './PlayerModel';
 
 export class Player {
   // Player specifications
@@ -17,6 +18,11 @@ export class Player {
   
   // Camera
   private camera: THREE.PerspectiveCamera;
+  
+  // Player model
+  private playerModel?: PlayerModel;
+  private scene?: THREE.Scene;
+  private showModel: boolean = true; // Show model but hide head in first-person
   
   // Movement state
   private moveForward = false;
@@ -35,9 +41,10 @@ export class Player {
   private velocity = new THREE.Vector3();
   private direction = new THREE.Vector3();
 
-  constructor(physics: Physics, camera: THREE.PerspectiveCamera) {
+  constructor(physics: Physics, camera: THREE.PerspectiveCamera, scene?: THREE.Scene) {
     this.physics = physics;
     this.camera = camera;
+    this.scene = scene;
     
     this.init();
   }
@@ -71,6 +78,24 @@ export class Player {
   private async init(): Promise<void> {
     this.createPlayerBody();
     this.setupKeyboardControls();
+    
+    // Load player model if scene is provided
+    if (this.scene) {
+      await this.loadPlayerModel();
+    }
+  }
+
+  private async loadPlayerModel(): Promise<void> {
+    this.playerModel = new PlayerModel();
+    await this.playerModel.load('/models/player-3.glb');
+    
+    const model = this.playerModel.getModel();
+    if (model && this.scene) {
+      // Hide model completely for local player (first-person)
+      model.visible = false;
+      this.scene.add(model);
+      console.log('✅ Player model added to scene (hidden for first-person)');
+    }
   }
 
   private createPlayerBody(): void {
@@ -163,6 +188,11 @@ export class Player {
     const currentVel = this.rigidBody.linvel();
     this.rigidBody.setLinvel({ x: currentVel.x, y: jumpVelocity, z: currentVel.z }, true);
     this.canJump = false;
+    
+    // Play jump animation
+    if (this.playerModel) {
+      this.playerModel.playJumpUp();
+    }
   }
 
   public update(deltaTime: number): void {
@@ -215,11 +245,96 @@ export class Player {
       playerPos.y + this.CAMERA_HEIGHT,
       playerPos.z
     );
+
+    // Update player model (follows capsule)
+    if (this.playerModel) {
+      // Position model at capsule feet (capsule center - half height)
+      this.playerModel.setPosition(
+        playerPos.x,
+        playerPos.y - this.HEIGHT / 2,
+        playerPos.z
+      );
+
+      // Rotation: Y-axis only (horizontal aim), never tilt the model
+      const cameraDirection = new THREE.Vector3();
+      this.camera.getWorldDirection(cameraDirection);
+      cameraDirection.y = 0; // Flatten to horizontal plane
+      cameraDirection.normalize();
+      const yaw = Math.atan2(cameraDirection.x, cameraDirection.z);
+      this.playerModel.setRotation(yaw);
+
+      // Animation: state-based on velocity and ground status
+      const isRunning = false; // TODO: Add sprint with Shift key
+      const animName = this.playerModel.getAnimationForMovement(
+        this.moveForward,
+        this.moveBackward,
+        this.moveLeft,
+        this.moveRight,
+        isRunning
+      );
+
+      if (animName) {
+        this.playerModel.playAnimation(animName);
+      } else {
+        // Idle state - no animation
+        this.playerModel.stopAnimation();
+      }
+
+      // Update animation mixer
+      this.playerModel.update(deltaTime);
+    }
   }
 
   public getPosition(): THREE.Vector3 {
     if (!this.rigidBody) return new THREE.Vector3();
     const pos = this.rigidBody.translation();
     return new THREE.Vector3(pos.x, pos.y, pos.z);
+  }
+
+  /**
+   * Get movement state for animations
+   */
+  public getMovementState() {
+    return {
+      moveForward: this.moveForward,
+      moveBackward: this.moveBackward,
+      moveLeft: this.moveLeft,
+      moveRight: this.moveRight,
+      isMoving: this.moveForward || this.moveBackward || this.moveLeft || this.moveRight
+    };
+  }
+
+  /**
+   * Toggle between first-person (hidden) and third-person (full model visible)
+   */
+  public setModelVisible(visible: boolean): void {
+    this.showModel = visible;
+    const model = this.playerModel?.getModel();
+    if (model) {
+      model.visible = visible;
+    }
+  }
+
+  /**
+   * Get player model (for remote players)
+   */
+  public getPlayerModel(): PlayerModel | undefined {
+    return this.playerModel;
+  }
+
+  /**
+   * Get camera rotation for network sync (pitch and yaw)
+   */
+  public getRotation(): { pitch: number; yaw: number } {
+    const cameraDirection = new THREE.Vector3();
+    this.camera.getWorldDirection(cameraDirection);
+    
+    // Calculate yaw (horizontal rotation)
+    const yaw = Math.atan2(cameraDirection.x, cameraDirection.z);
+    
+    // Calculate pitch (vertical rotation)
+    const pitch = Math.asin(-cameraDirection.y);
+    
+    return { pitch, yaw };
   }
 }

@@ -4,6 +4,7 @@ import { Crosshair } from '../ui/Crosshair';
 export class Controls {
   private camera: THREE.PerspectiveCamera;
   private isLocked: boolean = false;
+  private gameActive: boolean = false; // Track if game is running
   private euler: THREE.Euler;
   private sensitivity: number = 0.002;
   private crosshair: Crosshair;
@@ -27,19 +28,22 @@ export class Controls {
   }
 
   private setupPointerLock(): void {
+    // Add click listener to re-lock pointer when game is active
     document.addEventListener('click', () => {
-      if (!this.isLocked) {
+      if (this.gameActive && !this.isLocked) {
         document.body.requestPointerLock();
       }
     });
-
+    
     document.addEventListener('pointerlockchange', () => {
       this.isLocked = document.pointerLockElement === document.body;
       
-      // Show/hide crosshair based on pointer lock
+      // Hide/show cursor based on pointer lock
       if (this.isLocked) {
+        document.body.style.cursor = 'none';
         this.crosshair.show();
       } else {
+        document.body.style.cursor = 'default';
         this.crosshair.hide();
       }
     });
@@ -47,6 +51,16 @@ export class Controls {
     document.addEventListener('pointerlockerror', () => {
       console.error('Pointer lock error');
     });
+  }
+
+  /**
+   * Request pointer lock (called when game starts)
+   */
+  public lockPointer(): void {
+    this.gameActive = true; // Mark game as active
+    if (!this.isLocked) {
+      document.body.requestPointerLock();
+    }
   }
 
   private setupMouseMovement(): void {

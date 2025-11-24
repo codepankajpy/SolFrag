@@ -23,6 +23,11 @@ export interface PlayerState {
   username: string;
 }
 
+/**
+ * Animation state for players
+ */
+export type AnimationState = 'idle' | 'run' | 'jump_up' | 'jump_down' | 'death';
+
 export interface GameState {
   tick: number;
   timestamp: number;

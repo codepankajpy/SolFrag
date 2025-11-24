@@ -5,6 +5,7 @@ import { Renderer } from './core/Renderer';
 import { Controls } from './core/Controls';
 import { Physics } from './physics/Physics';
 import { Player } from './player/Player';
+import { RemotePlayer } from './player/RemotePlayer';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { HomeScreen } from './ui/HomeScreen';
 import { GameNotifications } from './ui/GameNotifications';
@@ -18,6 +19,7 @@ let gameStarted = false;
 let playerUsername = '';
 let networkClient: NetworkClient;
 let audioSystem: AudioSystem;
+let remotePlayers: Map<string, RemotePlayer> = new Map();
 
 // Fixed timestep for physics
 const FIXED_TIMESTEP = 1 / 60; // 60Hz physics
@@ -56,7 +58,7 @@ async function init() {
     });
     
     loadingScreen.updateProgress('Creating player...');
-    player = new Player(physics, camera.getCamera());
+    player = new Player(physics, camera.getCamera(), scene.getScene());
     
     loadingScreen.updateProgress('Loading weapon system...');
     // Wait for weapon to load (already happening in Camera constructor)
@@ -88,14 +90,52 @@ async function init() {
         networkClient.onConnected((playerId, username, gameState) => {
           console.log('Connected as:', playerId, username);
           notifications.showPlayerJoined(username);
+          
+          // Create remote players for existing players in the game
+          if (gameState?.players) {
+            Object.entries(gameState.players).forEach(async ([id, playerState]) => {
+              if (id !== playerId) {
+                const remotePlayer = new RemotePlayer(id, playerState.username, scene.getScene());
+                await remotePlayer.load();
+                remotePlayers.set(id, remotePlayer);
+              }
+            });
+          }
         });
         
-        networkClient.onPlayerJoined((player) => {
+        networkClient.onPlayerJoined(async (player) => {
           notifications.showPlayerJoined(player.username);
+          
+          // Create remote player model
+          const remotePlayer = new RemotePlayer(player.id, player.username, scene.getScene());
+          await remotePlayer.load();
+          remotePlayers.set(player.id, remotePlayer);
         });
         
         networkClient.onPlayerLeft((playerId, username) => {
           notifications.showPlayerLeft(username);
+          
+          // Remove remote player
+          const remotePlayer = remotePlayers.get(playerId);
+          if (remotePlayer) {
+            remotePlayer.dispose();
+            remotePlayers.delete(playerId);
+          }
+        });
+        
+        networkClient.onGameState((gameState) => {
+          // Update all remote players from game state (server-authoritative)
+          Object.entries(gameState.players).forEach(([id, playerState]) => {
+            const remotePlayer = remotePlayers.get(id);
+            if (remotePlayer) {
+              remotePlayer.updateState(
+                playerState.position,
+                playerState.rotation,
+                playerState.velocity,
+                playerState.alive
+              );
+            }
+          });
         });
         
         networkClient.onPlayerShot((playerId, position, direction) => {
@@ -108,6 +148,10 @@ async function init() {
         
         loadingScreen.hide();
         gameStarted = true;
+        
+        // Lock pointer when game starts
+        controls.lockPointer();
+        
         startGame();
         
       } catch (error) {
@@ -120,6 +164,10 @@ async function init() {
         notifications.showPlayerJoined(username);
         
         gameStarted = true;
+        
+        // Lock pointer when game starts
+        controls.lockPointer();
+        
         startGame();
       }
     });
@@ -133,6 +181,19 @@ async function init() {
 // Start the game loop
 function startGame(): void {
   renderer.instance.setAnimationLoop(animate);
+  
+  // Add debug command to toggle third-person view
+  (window as any).toggleThirdPerson = () => {
+    const currentState = player.getPlayerModel()?.getModel()?.visible || false;
+    player.setModelVisible(!currentState);
+    console.log(`Third-person view: ${!currentState ? 'ON (full body visible)' : 'OFF (head hidden, first-person)'}`);
+  };
+  console.log('💡 Debug commands:');
+  console.log('  • toggleThirdPerson() - Toggle between first/third person view');
+  console.log('📡 Multiplayer status:');
+  console.log('  • Local player: Hidden (first-person view)');
+  console.log('  • Remote players: Visible with smooth interpolation');
+  console.log('  • Animation states: idle, run, jump_up, jump_down, death');
 }
 
 // Animation loop
@@ -177,6 +238,24 @@ function animate(time: number): void {
   
   // Update bullet holes
   scene.bulletHoleManager.update();
+  
+  // Update remote players
+  remotePlayers.forEach(remotePlayer => {
+    remotePlayer.update(deltaTime);
+  });
+  
+  // Send player position update to server (throttle to ~20 updates/sec)
+  if (networkClient && Math.random() < 0.33) { // ~20Hz at 60fps
+    const playerPos = player.getPosition();
+    const playerRot = player.getRotation();
+    tempVelocity.copy(player.getVelocity());
+    
+    networkClient.sendPlayerUpdate(
+      { x: playerPos.x, y: playerPos.y, z: playerPos.z },
+      playerRot,
+      { x: tempVelocity.x, y: tempVelocity.y, z: tempVelocity.z }
+    );
+  }
   
   // Calculate if player is moving (use temp vector to reduce GC)
   tempVelocity.copy(player.getVelocity());

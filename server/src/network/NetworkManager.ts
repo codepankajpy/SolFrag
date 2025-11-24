@@ -1,10 +1,9 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { GameServer } from '../game/GameServer';
-import type {
+import {
   NetworkMessage,
   MessageType,
   JoinMessage,
-  PlayerInput,
 } from '../types/game.types';
 import { GAME_CONSTANTS } from '../constants/game.constants';
 
@@ -66,7 +65,7 @@ export class NetworkManager {
         break;
         
       case 'player_input':
-        this.handlePlayerInput(ws, data as PlayerInput);
+        this.handlePlayerInput(ws, data);
         break;
         
       case 'player_shoot':
@@ -96,7 +95,7 @@ export class NetworkManager {
     
     // Send join confirmation with current game state
     this.sendMessage(ws, {
-      type: 'player_joined',
+      type: MessageType.PLAYER_JOINED,
       data: {
         playerId,
         gameState: this.gameServer.getGameState(),
@@ -106,7 +105,7 @@ export class NetworkManager {
     
     // Notify all other players
     this.broadcastExcept(ws, {
-      type: 'player_joined',
+      type: MessageType.PLAYER_JOINED,
       data: {
         player: player.getState(),
       },
@@ -114,13 +113,14 @@ export class NetworkManager {
     });
   }
 
-  private handlePlayerInput(ws: WebSocket, input: PlayerInput): void {
+  private handlePlayerInput(ws: WebSocket, data: any): void {
     const client = this.clients.get(ws);
     if (!client) return;
     
     const player = this.gameServer.getPlayer(client.playerId);
-    if (player) {
-      player.handleInput(input);
+    if (player && data.position && data.rotation) {
+      // Update player state from client position update
+      player.updateFromClient(data.position, data.rotation, data.velocity || { x: 0, y: 0, z: 0 });
       client.lastUpdate = Date.now();
     }
   }
@@ -131,7 +131,7 @@ export class NetworkManager {
     
     // Broadcast shoot event to all clients
     this.broadcast({
-      type: 'player_shot',
+      type: MessageType.PLAYER_SHOT,
       data: {
         playerId: client.playerId,
         ...data,
@@ -151,7 +151,7 @@ export class NetworkManager {
       
       // Notify all clients with username
       this.broadcast({
-        type: 'player_left',
+        type: MessageType.PLAYER_LEFT,
         data: {
           playerId: client.playerId,
           username: client.username,
@@ -171,7 +171,7 @@ export class NetworkManager {
       const gameState = this.gameServer.getGameState();
       
       this.broadcast({
-        type: 'game_state',
+        type: MessageType.GAME_STATE,
         data: gameState,
         timestamp: Date.now(),
       });

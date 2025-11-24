@@ -61,15 +61,20 @@ export class ServerPlayer {
     this.world.createCollider(colliderDesc, this.rigidBody);
   }
 
-  handleInput(input: PlayerInput): void {
-    this.moveForward = input.movement.forward;
-    this.moveBackward = input.movement.backward;
-    this.moveLeft = input.movement.left;
-    this.moveRight = input.movement.right;
-    this.rotation = input.rotation;
+  /**
+   * Update player state from client position update
+   * For server-authoritative multiplayer with client-side prediction
+   */
+  updateFromClient(position: Vector3, rotation: Rotation, velocity: Vector3): void {
+    // Update position
+    this.position = position;
+    this.rotation = rotation;
+    this.velocity = velocity;
     
-    if (input.movement.jump && this.canJump) {
-      this.jump();
+    // Update physics body to match client position
+    if (this.rigidBody) {
+      this.rigidBody.setTranslation(position, true);
+      this.rigidBody.setLinvel(velocity, true);
     }
   }
 

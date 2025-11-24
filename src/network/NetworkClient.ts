@@ -179,6 +179,21 @@ export class NetworkClient {
   }
 
   /**
+   * Send player input/position update to server
+   */
+  public sendPlayerUpdate(
+    position: { x: number; y: number; z: number },
+    rotation: { pitch: number; yaw: number },
+    velocity: { x: number; y: number; z: number }
+  ): void {
+    this.send({
+      type: 'player_input',
+      data: { position, rotation, velocity },
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
    * Disconnect from server
    */
   public disconnect(): void {

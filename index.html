@@ -20,6 +20,15 @@
         -ms-overflow-style: none;  /* IE and Edge */
         scrollbar-width: none;  /* Firefox */
       }
+      
+      /* Hide cursor when pointer is locked */
+      body {
+        cursor: default;
+      }
+      
+      body:active {
+        cursor: none;
+      }
     </style>
   </head>
   <body>
