@@ -3,7 +3,10 @@
  */
 export class HomeScreen {
   private container: HTMLDivElement;
-  private onPlayCallback?: () => void;
+  private onPlayCallback?: (username: string) => void;
+  private usernameInput?: HTMLInputElement;
+  private playerCounter = 1;
+  private usedNumbers: Set<number> = new Set();
 
   constructor() {
     this.container = document.createElement('div');
@@ -21,7 +24,6 @@ export class HomeScreen {
       align-items: center;
       z-index: 9000;
       font-family: 'Arial', sans-serif;
-      cursor: pointer;
     `;
 
     // Game title
@@ -44,11 +46,62 @@ export class HomeScreen {
     subtitle.style.cssText = `
       color: rgba(255, 255, 255, 0.6);
       font-size: 20px;
-      margin-bottom: 60px;
+      margin-bottom: 40px;
       letter-spacing: 4px;
       text-transform: uppercase;
     `;
     this.container.appendChild(subtitle);
+
+    // Username input container
+    const inputContainer = document.createElement('div');
+    inputContainer.style.cssText = `
+      margin-bottom: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    `;
+
+    const inputLabel = document.createElement('div');
+    inputLabel.textContent = 'Enter Username (optional)';
+    inputLabel.style.cssText = `
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      letter-spacing: 1px;
+    `;
+    inputContainer.appendChild(inputLabel);
+
+    this.usernameInput = document.createElement('input');
+    this.usernameInput.type = 'text';
+    this.usernameInput.placeholder = 'Leave empty for auto-name';
+    this.usernameInput.maxLength = 20;
+    this.usernameInput.style.cssText = `
+      width: 300px;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(0, 212, 255, 0.5);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      text-align: center;
+      outline: none;
+      transition: all 0.3s ease;
+    `;
+
+    this.usernameInput.addEventListener('focus', () => {
+      this.usernameInput!.style.background = 'rgba(255, 255, 255, 0.15)';
+      this.usernameInput!.style.borderColor = '#00d4ff';
+      this.usernameInput!.style.boxShadow = '0 0 20px rgba(0, 212, 255, 0.4)';
+    });
+
+    this.usernameInput.addEventListener('blur', () => {
+      this.usernameInput!.style.background = 'rgba(255, 255, 255, 0.1)';
+      this.usernameInput!.style.borderColor = 'rgba(0, 212, 255, 0.5)';
+      this.usernameInput!.style.boxShadow = 'none';
+    });
+
+    inputContainer.appendChild(this.usernameInput);
+    this.container.appendChild(inputContainer);
 
     // Click to play button
     const playButton = document.createElement('div');
@@ -79,6 +132,11 @@ export class HomeScreen {
       playButton.style.background = 'rgba(0, 212, 255, 0.1)';
       playButton.style.boxShadow = '0 0 20px rgba(0, 212, 255, 0.3)';
       playButton.style.transform = 'scale(1)';
+    });
+
+    playButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handlePlay();
     });
 
     this.container.appendChild(playButton);
@@ -114,20 +172,37 @@ export class HomeScreen {
     `;
     document.head.appendChild(style);
 
-    // Click anywhere to play
-    this.container.addEventListener('click', () => {
-      if (this.onPlayCallback) {
-        this.onPlayCallback();
-      }
-    });
-
     document.body.appendChild(this.container);
+  }
+
+  private handlePlay(): void {
+    let username = this.usernameInput?.value.trim() || '';
+    
+    // If no username provided, generate one
+    if (!username) {
+      username = this.generateUsername();
+    }
+    
+    if (this.onPlayCallback) {
+      this.onPlayCallback(username);
+    }
+  }
+
+  private generateUsername(): string {
+    // Find next available player number
+    let playerNumber = this.playerCounter;
+    while (this.usedNumbers.has(playerNumber)) {
+      playerNumber++;
+    }
+    this.usedNumbers.add(playerNumber);
+    this.playerCounter = playerNumber + 1;
+    return `Player ${playerNumber}`;
   }
 
   /**
    * Set callback for when play is clicked
    */
-  public onPlay(callback: () => void): void {
+  public onPlay(callback: (username: string) => void): void {
     this.onPlayCallback = callback;
   }
 
