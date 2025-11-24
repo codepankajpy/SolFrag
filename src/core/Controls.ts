@@ -66,9 +66,9 @@ export class Controls {
       this.euler.y -= movementX * this.sensitivity;
       this.euler.x -= movementY * this.sensitivity;
       
-      // Clamp vertical rotation to prevent gimbal lock (max 90 degrees up/down)
-      const PI_2 = Math.PI / 2;
-      this.euler.x = Math.max(-PI_2 + 0.01, Math.min(PI_2 - 0.01, this.euler.x));
+      // Clamp vertical rotation to 85 degrees up/down to prevent flipping
+      const maxPitch = (85 * Math.PI) / 180; // 85 degrees in radians
+      this.euler.x = Math.max(-maxPitch, Math.min(maxPitch, this.euler.x));
       
       this.camera.quaternion.setFromEuler(this.euler);
     });
@@ -112,9 +112,16 @@ export class Controls {
     const pitch = pitchDampingFunction(this.recoilIndex / 2) / 30;
     const yaw = (yawDampingFunction(this.recoilIndex) / 50) * this.yawDirection;
 
-    // Apply recoil to camera
-    this.camera.rotateX(pitch);
-    this.camera.rotateY(yaw);
+    // Apply recoil to camera with pitch clamping
+    this.euler.setFromQuaternion(this.camera.quaternion);
+    this.euler.x += pitch;
+    this.euler.y += yaw;
+    
+    // Clamp to 85 degrees to prevent camera flip
+    const maxPitch = (85 * Math.PI) / 180;
+    this.euler.x = Math.max(-maxPitch, Math.min(maxPitch, this.euler.x));
+    
+    this.camera.quaternion.setFromEuler(this.euler);
     
     this.recoilIndex++;
   }
