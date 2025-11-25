@@ -53,6 +53,168 @@ export class PlayerModel {
   }
 
   /**
+   * Attach a weapon (GLTF) to a hand bone on the player model.
+   * Returns true if attached successfully.
+   */
+  public async attachWeaponFromFile(
+    path: string,
+    boneKeywords: string[] = ['r_hand', 'right_hand', 'right', 'hand', 'wrist', 'weapon'],
+    offset: { position?: THREE.Vector3; rotation?: THREE.Euler; scale?: number } = {},
+    alignWithBone: boolean = true,
+    visualize: boolean = false,
+    flipY: boolean = false
+  ): Promise<boolean> {
+    if (!this.model) return false;
+
+    try {
+      const gltf = await this.loader.loadAsync(path);
+      const weapon = gltf.scene;
+
+      // Helper: normalized lower-case name
+      const norm = (s?: string) => (s || '').toLowerCase();
+
+      // Prioritized search strategy for best hand bone match
+      let attachBone: THREE.Object3D | undefined;
+
+      // 1) If there are skinned meshes, prefer skeleton bones that match strong patterns
+      const preferredPatterns = [
+        ['r_hand'],
+        ['right_hand'],
+        ['right', 'hand'],
+        ['hand', 'right'],
+        ['hand'],
+        ['wrist']
+      ];
+
+      // Collect skeleton bones
+      const skeletonBones: THREE.Bone[] = [];
+      this.model.traverse((c) => {
+        if ((c as any).isSkinnedMesh || c.type === 'SkinnedMesh') {
+          const sk = c as THREE.SkinnedMesh;
+          if (sk.skeleton && sk.skeleton.bones) {
+            for (const b of sk.skeleton.bones) skeletonBones.push(b);
+          }
+        }
+      });
+
+      // Search skeleton bones by prioritized patterns
+      if (skeletonBones.length > 0) {
+        for (const pattern of preferredPatterns) {
+          for (const bone of skeletonBones) {
+            const bname = norm(bone.name);
+            let ok = true;
+            for (const p of pattern) {
+              if (!bname.includes(p)) { ok = false; break; }
+            }
+            if (ok) { attachBone = bone; break; }
+          }
+          if (attachBone) break;
+        }
+      }
+
+      // 2) Fallback: traverse model object names using provided keywords but avoid single 'right' match
+      if (!attachBone) {
+        this.model.traverse((child) => {
+          const name = norm(child.name);
+          // require either 'hand' or 'wrist' or explicit 'r_' patterns; avoid matching just 'right'
+          for (const kw of boneKeywords) {
+            if (kw === 'right' && !name.includes('hand') && !name.includes('wrist')) continue;
+            if (name.includes(kw)) {
+              attachBone = child;
+              return;
+            }
+          }
+        });
+      }
+
+      // 3) Give up: attach to model root
+      if (!attachBone) {
+        console.warn('No hand bone found for attaching weapon; attaching to model root');
+        attachBone = this.model;
+      }
+
+      // Default weapon scale conservative (small) if not provided
+      const weaponScale = offset.scale !== undefined ? offset.scale : 0.16;
+      weapon.scale.setScalar(weaponScale);
+
+      // Align weapon with bone by default (zero local transform), then apply offsets
+      weapon.position.set(0, 0, 0);
+
+      // Default rotation to match first-person viewmodel base rotation
+      // (this orients the muzzle forward for many weapon assets)
+      const defaultRotation = new THREE.Euler(0, Math.PI * 0.5, 0);
+      weapon.setRotationFromEuler(defaultRotation);
+
+      // Apply any provided offsets on top of the default
+      if (offset.position) {
+        weapon.position.copy(offset.position);
+      }
+      if (offset.rotation) {
+        // Apply user-specified rotation override
+        weapon.setRotationFromEuler(offset.rotation);
+      }
+
+      // Prevent frustum culling from hiding the weapon
+      weapon.traverse((c) => {
+        if (c instanceof THREE.Mesh) c.frustumCulled = false;
+      });
+
+      // Optionally visualize the attach bone pivot to help tuning
+      if (visualize && attachBone) {
+        const axes = new THREE.AxesHelper(0.15);
+        attachBone.add(axes);
+
+        // Expose the attached weapon and a small helper to adjust offsets at runtime
+        try {
+          const win = (globalThis as any);
+          win.__lastAttachedWeapon = weapon;
+          win.__setWeaponOffset = (px: number, py: number, pz: number, rx: number, ry: number, rz: number, s?: number) => {
+            if (!win.__lastAttachedWeapon) return;
+            win.__lastAttachedWeapon.position.set(px, py, pz);
+            win.__lastAttachedWeapon.rotation.set(rx, ry, rz);
+            if (s !== undefined) win.__lastAttachedWeapon.scale.setScalar(s);
+            console.log('Applied weapon offset', { px, py, pz, rx, ry, rz, s });
+          };
+        } catch (e) {
+          // ignore if environment doesn't expose globalThis
+        }
+      }
+
+      // Attach the weapon to the detected bone/object
+      attachBone.add(weapon);
+
+      // Best-effort: align the weapon's forward to the bone's forward direction
+      if (alignWithBone && attachBone) {
+        try {
+          const worldPos = new THREE.Vector3();
+          attachBone.getWorldPosition(worldPos);
+          const forward = new THREE.Vector3();
+          attachBone.getWorldDirection(forward);
+          const lookTarget = worldPos.clone().add(forward);
+          // weapon.lookAt expects a world-space target
+          weapon.lookAt(lookTarget);
+          // Note: different weapon assets have different local forward axes.
+          // If the muzzle appears rotated, use the runtime helper `__setWeaponOffset` to fine-tune.
+        } catch (e) {
+          // ignore any errors from world transforms
+        }
+        // Optionally flip 180 degrees around Y (useful when model's local forward is opposite)
+        if (flipY) {
+          try {
+            weapon.rotateY(Math.PI);
+          } catch (e) {
+            // ignore rotate errors
+          }
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to load/attach weapon GLTF:', err);
+      return false;
+    }
+  }
+
+  /**
    * Get the 3D model
    */
   getModel(): THREE.Group | undefined {
@@ -152,7 +314,7 @@ export class PlayerModel {
     moveBackward: boolean,
     moveLeft: boolean,
     moveRight: boolean,
-    isRunning: boolean
+    _isRunning: boolean
   ): string | null {
     // No movement = idle (no animation)
     if (!moveForward && !moveBackward && !moveLeft && !moveRight) {

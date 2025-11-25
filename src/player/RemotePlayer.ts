@@ -60,6 +60,29 @@ export class RemotePlayer {
       
       console.log(`✅ Remote player model loaded: ${this.username}`);
     }
+    
+    // Try to attach weapon to the model's hand (best-effort)
+    try {
+      // Attach weapon with conservative defaults and visualize attach pivot
+      // so we can fine-tune if alignment is off.
+      const attached = await this.playerModel.attachWeaponFromFile(
+        '/models/AssaultRifle_2.glb',
+        ['r_hand', 'right_hand', 'right', 'hand', 'wrist'],
+        {
+          // leave position/rotation unset so the weapon inherits bone transform,
+          // only set a scale to keep it small relative to model.
+          scale: 0.16,
+        },
+        true, // alignWithBone - attempt to orient weapon forward to bone direction
+        true, // visualize the attach pivot (AxesHelper)
+        true  // flipY: rotate 180° around Y so muzzle faces forward if asset is mirrored
+      );
+      if (attached) {
+        console.log('🔫 Attached weapon to remote player hand');
+      }
+    } catch (err) {
+      console.warn('Could not attach weapon to remote player:', err);
+    }
   }
 
   /**
