@@ -138,6 +138,104 @@ export class NetworkManager {
       },
       timestamp: Date.now(),
     });
+
+    // Server-side hit detection (best-effort): simple angle + distance check
+    try {
+      const shooter = this.gameServer.getPlayer(client.playerId);
+      if (!shooter) return;
+
+      const origin = data.position; // {x,y,z}
+      const dir = data.direction; // {x,y,z}
+      // Normalize direction
+      const dirLen = Math.sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z) || 1;
+      const ndir = { x: dir.x/dirLen, y: dir.y/dirLen, z: dir.z/dirLen };
+
+      // Iterate potential victims
+      for (const [id, target] of this.gameServer.getPlayers()) {
+        if (id === client.playerId) continue; // don't hit self
+
+        const state = target.getState();
+        // Vector from origin to target center
+        const toTarget = {
+          x: state.position.x - origin.x,
+          y: state.position.y - origin.y,
+          z: state.position.z - origin.z,
+        };
+
+        const projection = ndir.x * toTarget.x + ndir.y * toTarget.y + ndir.z * toTarget.z; // t along ray
+        if (projection <= 0) continue; // behind shooter
+
+        // Maximum weapon range (cheap cap)
+        const MAX_RANGE = 200;
+        if (projection > MAX_RANGE) continue;
+
+        // Closest point on ray to player center
+        const closest = {
+          x: origin.x + ndir.x * projection,
+          y: origin.y + ndir.y * projection,
+          z: origin.z + ndir.z * projection,
+        };
+
+        // Separate horizontal (XZ) and vertical (Y) distances to model full capsule
+        const dx = state.position.x - closest.x;
+        const dz = state.position.z - closest.z;
+        const horizontalDist = Math.sqrt(dx * dx + dz * dz);
+        const verticalDist = Math.abs(state.position.y - closest.y);
+
+        // Consider hit if horizontal distance is within player radius + margin
+        const HIT_MARGIN = 0.35; // meters
+        const VERTICAL_MARGIN = 0.25; // meters allowance above/below
+
+        const halfHeight = GAME_CONSTANTS.PLAYER_HEIGHT / 2;
+        const verticalAllowed = halfHeight + VERTICAL_MARGIN;
+
+        if (horizontalDist > (GAME_CONSTANTS.PLAYER_RADIUS + HIT_MARGIN)) continue;
+        if (verticalDist > verticalAllowed) continue;
+
+        // Determine hit height at the intersection point
+        const hitY = closest.y;
+        const headThreshold = state.position.y + GAME_CONSTANTS.PLAYER_HEIGHT * 0.75;
+        const isHeadshot = hitY >= headThreshold;
+
+        const damage = isHeadshot ? GAME_CONSTANTS.MAX_HEALTH : 32;
+
+        const died = target.takeDamage(damage);
+
+        // Broadcast hit event
+        this.broadcast({
+          type: MessageType.PLAYER_HIT,
+          data: {
+            shooterId: client.playerId,
+            victimId: id,
+            damage,
+            hitPosition: { x: state.position.x, y: state.position.y, z: state.position.z },
+          },
+          timestamp: Date.now(),
+        });
+
+        if (died) {
+          // Broadcast death / kill notification
+          this.broadcast({
+            type: MessageType.PLAYER_DIED,
+            data: {
+              shooterId: client.playerId,
+              victimId: id,
+              shooterName: client.username,
+              victimName: state.username,
+            },
+            timestamp: Date.now(),
+          });
+
+          // Schedule respawn after configured time
+          setTimeout(() => {
+            target.respawn();
+            // After respawn, let all clients know full game state on next broadcast cycle
+          }, GAME_CONSTANTS.RESPAWN_TIME);
+        }
+      }
+    } catch (e) {
+      console.error('Error during hit detection:', e);
+    }
   }
 
   private handleDisconnect(ws: WebSocket): void {

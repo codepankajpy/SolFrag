@@ -66,6 +66,9 @@ export class ServerPlayer {
    * For server-authoritative multiplayer with client-side prediction
    */
   updateFromClient(position: Vector3, rotation: Rotation, velocity: Vector3): void {
+    // Don't accept position updates from dead players (server controls respawn)
+    if (!this.alive) return;
+    
     // Update position
     this.position = position;
     this.rotation = rotation;
@@ -159,6 +162,24 @@ export class ServerPlayer {
       return true; // Player died
     }
     return false;
+  }
+
+  /**
+   * Respawn the player at a random spawn point and reset health
+   */
+  respawn(): void {
+    this.health = GAME_CONSTANTS.MAX_HEALTH;
+    this.alive = true;
+
+    const spawn = MAP_CONSTANTS.SPAWN_POINTS[
+      Math.floor(Math.random() * MAP_CONSTANTS.SPAWN_POINTS.length)
+    ];
+
+    this.position = { ...spawn };
+    if (this.rigidBody) {
+      this.rigidBody.setTranslation(this.position, true);
+      this.rigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    }
   }
 
   getState(): PlayerState {

@@ -285,6 +285,32 @@ export class Player {
     }
   }
 
+  /**
+   * Enable or disable player input (used when dead/respawning)
+   */
+  public setActive(active: boolean): void {
+    if (!active) {
+      // stop all input actions
+      this.moveForward = false;
+      this.moveBackward = false;
+      this.moveLeft = false;
+      this.moveRight = false;
+      this.isShooting = false;
+    }
+    // No explicit enabled flag used elsewhere; callers can manage UI
+  }
+
+  /**
+   * Respawn player at a specific position (server tells client)
+   */
+  public respawnAt(x: number, y: number, z: number): void {
+    if (!this.rigidBody) return;
+    this.rigidBody.setTranslation({ x, y, z }, true);
+    this.rigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    // Also reset camera position immediately
+    this.camera.position.set(x, y + this.CAMERA_HEIGHT, z);
+  }
+
   public getPosition(): THREE.Vector3 {
     if (!this.rigidBody) return new THREE.Vector3();
     const pos = this.rigidBody.translation();

@@ -36,6 +36,42 @@ export class GameNotifications {
     this.addNotification(username, 'left', '#f44336');
   }
 
+  /**
+   * Show kill notification: "Shooter killed Victim"
+   */
+  public showKillNotification(shooter: string, victim: string): void {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      background: rgba(0, 0, 0, 0.9);
+      border-left: 4px solid #ff9800;
+      color: #fff;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      animation: slideIn 0.3s ease;
+      opacity: 0;
+      transform: translateX(100%);
+    `;
+
+    notification.innerHTML = `
+      <span style="color: #ff9800; font-weight: bold;">${shooter}</span>
+      <span style="color: rgba(255,255,255,0.9);"> killed </span>
+      <span style="color: #fff; font-weight: bold;">${victim}</span>
+    `;
+
+    this.container.appendChild(notification);
+    this.notifications.push(notification);
+
+    setTimeout(() => {
+      notification.style.opacity = '1';
+      notification.style.transform = 'translateX(0)';
+    }, 10);
+
+    setTimeout(() => this.removeNotification(notification), 5000);
+  }
+
   private addNotification(username: string, action: string, color: string): void {
     const notification = document.createElement('div');
     notification.style.cssText = `

@@ -9,6 +9,9 @@ import { RemotePlayer } from './player/RemotePlayer';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { HomeScreen } from './ui/HomeScreen';
 import { GameNotifications } from './ui/GameNotifications';
+import { HealthUI } from './ui/Health';
+import { DeathOverlay } from './ui/DeathOverlay';
+import { GAME_CONSTANTS } from '../shared/constants/game.constants';
 import { NetworkClient } from './network/NetworkClient';
 import { AudioSystem } from './audio/AudioSystem';
 
@@ -20,6 +23,10 @@ let playerUsername = '';
 let networkClient: NetworkClient;
 let audioSystem: AudioSystem;
 let remotePlayers: Map<string, RemotePlayer> = new Map();
+let localPlayerId: string | null = null;
+let healthUI: any = null;
+let deathOverlay: DeathOverlay | null = null;
+let localWasAlive = true;
 
 // Fixed timestep for physics
 const FIXED_TIMESTEP = 1 / 60; // 60Hz physics
@@ -88,6 +95,11 @@ async function init() {
         
         // Setup network callbacks
         networkClient.onConnected((playerId, username, gameState) => {
+          localPlayerId = playerId;
+          // Create health UI for local player
+          healthUI = new HealthUI();
+          deathOverlay = new DeathOverlay();
+
           console.log('Connected as:', playerId, username);
           notifications.showPlayerJoined(username);
           
@@ -135,7 +147,39 @@ async function init() {
                 playerState.alive
               );
             }
+            // Update local health UI and local player enable/respawn
+            if (localPlayerId && id === localPlayerId && healthUI) {
+              healthUI.setHealth(playerState.health);
+              if (!playerState.alive) {
+                healthUI.showRespawnCountdown(GAME_CONSTANTS.RESPAWN_TIME);
+                // play death animation for local model (if visible)
+                const pm = player.getPlayerModel();
+                if (pm) pm.playDeath();
+                // disable local input
+                player.setActive(false);
+                localWasAlive = false;
+                // show full-screen death overlay with countdown
+                if (deathOverlay) deathOverlay.showCountdown(GAME_CONSTANTS.RESPAWN_TIME);
+              } else {
+                // If we were previously dead and now alive, respawn locally
+                if (!localWasAlive) {
+                  // server will update position in game state; ensure camera placement
+                  player.setActive(true);
+                }
+                healthUI.clearRespawn();
+                // hide overlay if visible
+                if (deathOverlay) deathOverlay.hide();
+                localWasAlive = true;
+              }
+            }
           });
+        });
+
+        networkClient.onPlayerDied((shooterId, victimId, shooterName, victimName) => {
+          // reference ids to avoid unused-variable warnings
+          void shooterId; void victimId;
+          // Show global kill notification
+          if (shooterName && victimName) notifications.showKillNotification(shooterName, victimName);
         });
         
         networkClient.onPlayerShot((playerId, position, direction) => {

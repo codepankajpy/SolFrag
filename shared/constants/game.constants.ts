@@ -23,7 +23,7 @@ export const GAME_CONSTANTS = {
   
   // Game
   MAX_PLAYERS: 16,
-  RESPAWN_TIME: 3000, // ms
+  RESPAWN_TIME: 5000, // ms
   MAX_HEALTH: 100,
   
   // Physics

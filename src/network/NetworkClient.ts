@@ -14,6 +14,8 @@ export class NetworkClient {
   private onPlayerLeftCallback?: (playerId: string, username: string) => void;
   private onGameStateCallback?: (gameState: GameState) => void;
   private onPlayerShotCallback?: (playerId: string, position: any, direction: any) => void;
+  private onPlayerHitCallback?: (shooterId: string, victimId: string, damage: number) => void;
+  private onPlayerDiedCallback?: (shooterId: string, victimId: string, shooterName?: string, victimName?: string) => void;
   private onDisconnectedCallback?: () => void;
 
   constructor(private serverUrl: string = 'ws://localhost:3001') {}
@@ -117,6 +119,18 @@ export class NetworkClient {
         }
         break;
 
+      case 'player_hit':
+        if (this.onPlayerHitCallback) {
+          this.onPlayerHitCallback(message.data.shooterId, message.data.victimId, message.data.damage);
+        }
+        break;
+
+      case 'player_died':
+        if (this.onPlayerDiedCallback) {
+          this.onPlayerDiedCallback(message.data.shooterId, message.data.victimId, message.data.shooterName, message.data.victimName);
+        }
+        break;
+
       default:
         console.log('Unknown message type:', message.type);
     }
@@ -161,6 +175,14 @@ export class NetworkClient {
    */
   public onPlayerShot(callback: (playerId: string, position: any, direction: any) => void): void {
     this.onPlayerShotCallback = callback;
+  }
+
+  public onPlayerHit(callback: (shooterId: string, victimId: string, damage: number) => void): void {
+    this.onPlayerHitCallback = callback;
+  }
+
+  public onPlayerDied(callback: (shooterId: string, victimId: string, shooterName?: string, victimName?: string) => void): void {
+    this.onPlayerDiedCallback = callback;
   }
 
   public onDisconnected(callback: () => void): void {
