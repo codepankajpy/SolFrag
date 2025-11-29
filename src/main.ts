@@ -102,6 +102,15 @@ async function init() {
 
           console.log('Connected as:', playerId, username);
           notifications.showPlayerJoined(username);
+
+          // Apply server-assigned spawn position for local player BEFORE we start sending updates
+          if (gameState?.players && gameState.players[playerId]) {
+            const state = gameState.players[playerId];
+            if (state?.position) {
+              player.respawnAt(state.position.x, state.position.y, state.position.z);
+              console.log('✅ Applied server spawn for local player:', state.position);
+            }
+          }
           
           // Create remote players for existing players in the game
           if (gameState?.players) {
@@ -161,10 +170,16 @@ async function init() {
                 // show full-screen death overlay with countdown
                 if (deathOverlay) deathOverlay.showCountdown(GAME_CONSTANTS.RESPAWN_TIME);
               } else {
-                // If we were previously dead and now alive, respawn locally
+                // If we were previously dead and now alive, apply server spawn position
                 if (!localWasAlive) {
-                  // server will update position in game state; ensure camera placement
                   player.setActive(true);
+                  // Snap local physics/camera to authoritative server spawn
+                  player.respawnAt(
+                    playerState.position.x,
+                    playerState.position.y,
+                    playerState.position.z
+                  );
+                  console.log('✅ Applied server respawn position:', playerState.position);
                 }
                 healthUI.clearRespawn();
                 // hide overlay if visible
@@ -232,8 +247,36 @@ function startGame(): void {
     player.setModelVisible(!currentState);
     console.log(`Third-person view: ${!currentState ? 'ON (full body visible)' : 'OFF (head hidden, first-person)'}`);
   };
+  
+  // Add debug command to get player position and direction
+  (window as any).getPlayerPos = () => {
+    const pos = player.getPosition();
+    const rot = player.getRotation();
+    const cam = camera.getCamera();
+    const direction = new THREE.Vector3();
+    cam.getWorldDirection(direction);
+    
+    console.log('📍 Player Position:', {
+      x: pos.x.toFixed(2),
+      y: pos.y.toFixed(2),
+      z: pos.z.toFixed(2)
+    });
+    console.log('🧭 Player Rotation:', {
+      pitch: (rot.pitch * 180 / Math.PI).toFixed(1) + '°',
+      yaw: (rot.yaw * 180 / Math.PI).toFixed(1) + '°'
+    });
+    console.log('➡️  Looking Direction:', {
+      x: direction.x.toFixed(2),
+      y: direction.y.toFixed(2),
+      z: direction.z.toFixed(2)
+    });
+    
+    return { position: pos, rotation: rot, direction };
+  };
+  
   console.log('💡 Debug commands:');
   console.log('  • toggleThirdPerson() - Toggle between first/third person view');
+  console.log('  • getPlayerPos() - Get current position and facing direction');
   console.log('📡 Multiplayer status:');
   console.log('  • Local player: Hidden (first-person view)');
   console.log('  • Remote players: Visible with smooth interpolation');

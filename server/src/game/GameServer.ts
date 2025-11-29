@@ -1,6 +1,6 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { PlayerState, GameState } from '../types/game.types.js';
-import { GAME_CONSTANTS } from '../constants/game.constants.js';
+import { GAME_CONSTANTS, MAP_CONSTANTS } from '../constants/game.constants.js';
 import { ServerPlayer } from '../player/ServerPlayer.js';
 
 /**
@@ -14,6 +14,7 @@ export class GameServer {
   private lastUpdate: number = 0;
   private running: boolean = false;
   private tickInterval: NodeJS.Timeout | null = null;
+  private usedSpawnIndices: Set<number> = new Set();
 
   async initialize(): Promise<void> {
     // Initialize RAPIER physics
@@ -27,6 +28,10 @@ export class GameServer {
     this.createGroundCollider();
     
     console.log('✅ Physics engine initialized');
+    console.log(`🧭 Loaded ${MAP_CONSTANTS.SPAWN_POINTS.length} spawn points:`);
+    MAP_CONSTANTS.SPAWN_POINTS.forEach((sp, i) => {
+      console.log(`   [${i}] (${sp.x.toFixed(2)}, ${sp.y.toFixed(2)}, ${sp.z.toFixed(2)})`);
+    });
     
     // Start game loop
     this.start();
@@ -81,7 +86,8 @@ export class GameServer {
   }
 
   addPlayer(id: string, username: string): ServerPlayer {
-    const player = new ServerPlayer(id, username, this.world!, this.rapier!);
+    const { spawn, index } = this.allocateSpawn();
+    const player = new ServerPlayer(id, username, this.world!, this.rapier!, spawn, index);
     this.players.set(id, player);
     
     console.log(`✅ Player joined: ${username} (${id})`);
@@ -90,9 +96,44 @@ export class GameServer {
     return player;
   }
 
+  private allocateSpawn(): { spawn: { x: number; y: number; z: number }; index: number } {
+    // Find unused indices
+    const allIndices = MAP_CONSTANTS.SPAWN_POINTS.map((_, i) => i);
+    const free = allIndices.filter(i => !this.usedSpawnIndices.has(i));
+    let chosenIndex: number;
+    if (free.length === 0) {
+      // All used, allow reuse (rare when players > spawn points)
+      chosenIndex = Math.floor(Math.random() * MAP_CONSTANTS.SPAWN_POINTS.length);
+    } else {
+      chosenIndex = free[Math.floor(Math.random() * free.length)];
+    }
+    this.usedSpawnIndices.add(chosenIndex);
+    const spawn = MAP_CONSTANTS.SPAWN_POINTS[chosenIndex];
+    console.log(`🎯 Allocated spawn index ${chosenIndex} at (${spawn.x.toFixed(2)}, ${spawn.y.toFixed(2)}, ${spawn.z.toFixed(2)})`);
+    return { spawn, index: chosenIndex };
+  }
+
+  releaseSpawn(index: number): void {
+    this.usedSpawnIndices.delete(index);
+  }
+
+  respawnPlayer(player: ServerPlayer): void {
+    const prevIndex = player.getSpawnIndex();
+    this.releaseSpawn(prevIndex);
+    const { spawn, index } = this.allocateSpawn();
+    player.respawn(spawn, index);
+    console.log(`🔄 Respawned player ${player.getState().username} at new spawn index ${index}`);
+  }
+
   removePlayer(id: string): void {
     const player = this.players.get(id);
     if (player) {
+      // Release the spawn index so a future player can use it
+      const index = player.getSpawnIndex?.() ?? null;
+      if (index !== null) {
+        this.releaseSpawn(index);
+        console.log(`🏁 Released spawn index ${index} from ${player.getState().username}`);
+      }
       player.destroy();
       this.players.delete(id);
       console.log(`👋 Player left: ${player.getState().username} (${id})`);

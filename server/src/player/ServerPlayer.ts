@@ -1,6 +1,6 @@
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { PlayerState, PlayerInput, Vector3, Rotation } from '../types/game.types';
-import { GAME_CONSTANTS, MAP_CONSTANTS } from '../constants/game.constants';
+import { GAME_CONSTANTS } from '../constants/game.constants';
 
 /**
  * Server-side player with physics and state management
@@ -16,6 +16,7 @@ export class ServerPlayer {
   private rigidBody: RAPIER.RigidBody | null = null;
   private world: RAPIER.World;
   private rapier: typeof RAPIER;
+  private spawnIndex: number;
   
   // Input state
   private moveForward = false;
@@ -24,20 +25,15 @@ export class ServerPlayer {
   private moveRight = false;
   private canJump = false;
 
-  constructor(id: string, username: string, world: RAPIER.World, rapier: typeof RAPIER) {
+  constructor(id: string, username: string, world: RAPIER.World, rapier: typeof RAPIER, spawn: Vector3, spawnIndex: number) {
     this.id = id;
     this.username = username;
     this.world = world;
     this.rapier = rapier;
     this.health = GAME_CONSTANTS.MAX_HEALTH;
     this.alive = true;
-    
-    // Get random spawn point
-    const spawn = MAP_CONSTANTS.SPAWN_POINTS[
-      Math.floor(Math.random() * MAP_CONSTANTS.SPAWN_POINTS.length)
-    ];
-    
     this.position = { ...spawn };
+    this.spawnIndex = spawnIndex;
     this.rotation = { pitch: 0, yaw: 0 };
     this.velocity = { x: 0, y: 0, z: 0 };
     
@@ -167,19 +163,19 @@ export class ServerPlayer {
   /**
    * Respawn the player at a random spawn point and reset health
    */
-  respawn(): void {
+  respawn(spawn: Vector3, spawnIndex: number): void {
     this.health = GAME_CONSTANTS.MAX_HEALTH;
     this.alive = true;
-
-    const spawn = MAP_CONSTANTS.SPAWN_POINTS[
-      Math.floor(Math.random() * MAP_CONSTANTS.SPAWN_POINTS.length)
-    ];
-
     this.position = { ...spawn };
+    this.spawnIndex = spawnIndex;
     if (this.rigidBody) {
       this.rigidBody.setTranslation(this.position, true);
       this.rigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
     }
+  }
+
+  getSpawnIndex(): number {
+    return this.spawnIndex;
   }
 
   getState(): PlayerState {

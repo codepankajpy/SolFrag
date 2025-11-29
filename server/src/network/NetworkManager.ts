@@ -5,7 +5,7 @@ import {
   MessageType,
   JoinMessage,
 } from '../types/game.types';
-import { GAME_CONSTANTS } from '../constants/game.constants';
+import { GAME_CONSTANTS, MAP_CONSTANTS } from '../constants/game.constants';
 
 interface Client {
   ws: WebSocket;
@@ -228,8 +228,8 @@ export class NetworkManager {
 
           // Schedule respawn after configured time
           setTimeout(() => {
-            target.respawn();
-            // After respawn, let all clients know full game state on next broadcast cycle
+            this.gameServer.respawnPlayer(target);
+            // After respawn, clients get updated state on broadcast loop
           }, GAME_CONSTANTS.RESPAWN_TIME);
         }
       }

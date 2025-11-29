@@ -34,10 +34,11 @@ export const GAME_CONSTANTS = {
 export const MAP_CONSTANTS = {
   DEFAULT_MAP: 'compressed_invasion',
   SPAWN_POINTS: [
-    { x: 0, y: 2, z: 0 },
-    { x: 5, y: 2, z: 5 },
-    { x: -5, y: 2, z: 5 },
-    { x: 5, y: 2, z: -5 },
-    { x: -5, y: 2, z: -5 },
+    { x: -0.28, y: 0.32, z: -0.40 },
+    { x: 61.23, y: 4.27, z: 20.14 },
+    { x: 39.90, y: 0.33, z: -37.55 },
+    { x: -19.97, y: 2.77, z: -39.83 },
+    { x: -52.48, y: 2.75, z: -8.25 },
+    { x: -36.58, y: 0.33, z: 29.67 },
   ],
 };
