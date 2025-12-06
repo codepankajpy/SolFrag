@@ -104,35 +104,63 @@ async function init() {
           healthUI = new HealthUI();
           deathOverlay = new DeathOverlay();
           scoreboard = new Scoreboard();
+          
           // Initialize Anchor provider from Phantom if available
           try {
             const wallet = (window as any).solana;
+            console.log('🔍 Checking Phantom wallet...', { 
+              exists: !!wallet, 
+              connected: wallet?.isConnected, 
+              publicKey: wallet?.publicKey?.toString() 
+            });
+            
             if (wallet && wallet.publicKey) {
               const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+              console.log('🔗 Connecting to Solana RPC:', rpcUrl);
               const connection = new Connection(rpcUrl, 'confirmed');
               anchorProvider = getProvider(connection, wallet);
               matchOwnerPubkey = wallet.publicKey as PublicKey;
+              console.log('✅ Anchor provider initialized');
+              console.log('👛 Wallet address:', wallet.publicKey.toString());
+              console.log('🎮 Program ID:', 'HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51');
+            } else {
+              console.warn('⚠️ Phantom wallet not connected. Connect wallet before playing.');
             }
           } catch (e) {
-            console.warn('Anchor provider init failed:', e);
+            console.error('❌ Anchor provider init failed:', e);
           }
 
           // Extract a matchId from game state if provided (roomId or matchId)
           const gsAny: any = gameState || {};
           if (typeof gsAny.roomId === 'number') currentMatchId = gsAny.roomId;
           else if (typeof gsAny.matchId === 'number') currentMatchId = gsAny.matchId;
+          
+          console.log('🎲 Match ID extracted:', currentMatchId);
+          console.log('📊 Game state:', { roomId: gsAny.roomId, matchId: gsAny.matchId });
 
           // If we are the owner and have provider + matchId, create the match on-chain
           if (anchorProvider && currentMatchId != null && matchOwnerPubkey) {
+            console.log('🚀 Attempting to create on-chain match...', { 
+              matchId: currentMatchId, 
+              owner: matchOwnerPubkey.toString() 
+            });
             // Heuristic: first player to connect in a room acts as owner
             (async () => {
               try {
-                await createMatch(anchorProvider, { matchId: currentMatchId!, winPoints: 3 });
-                console.log('📦 on-chain match created:', currentMatchId);
-              } catch (err) {
-                console.warn('createMatch failed (may already exist):', err);
+                const signature = await createMatch(anchorProvider, { matchId: currentMatchId!, winPoints: 3 });
+                console.log('✅ On-chain match created successfully!');
+                console.log('📦 Match ID:', currentMatchId);
+                console.log('🔗 Transaction:', signature);
+              } catch (err: any) {
+                console.warn('⚠️ createMatch failed (may already exist):', err?.message || err);
               }
             })();
+          } else {
+            console.warn('⚠️ Cannot create on-chain match:', {
+              hasProvider: !!anchorProvider,
+              hasMatchId: currentMatchId != null,
+              hasOwner: !!matchOwnerPubkey
+            });
           }
 
           console.log('Connected as:', playerId, username);
