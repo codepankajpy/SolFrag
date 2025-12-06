@@ -4,8 +4,8 @@ import type { Idl } from "@coral-xyz/anchor";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 // Program constants
-export const PROGRAM_ID = new PublicKey("HmabEu5cvHdCUAvnAPB4rRbYonvKDKDx5v9cTYQut7LR");
-export const DEFAULT_RPC = "http://127.0.0.1:8899";
+export const PROGRAM_ID = new PublicKey("HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51");
+export const DEFAULT_RPC = import.meta.env.VITE_SOLANA_RPC_URL || "https://api.devnet.solana.com";
 
 export interface MatchIds {
   matchId: number; // u64 in program, we pass as number and convert to le bytes in Anchor

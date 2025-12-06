@@ -20,8 +20,8 @@ export class NetworkClient {
   private customHandlers: Map<string, (data: any) => void> = new Map();
   private serverUrl: string;
 
-  constructor(serverUrl: string = 'ws://localhost:3001') {
-    this.serverUrl = serverUrl;
+  constructor(serverUrl?: string) {
+    this.serverUrl = serverUrl || import.meta.env.VITE_WS_SERVER_URL || 'ws://localhost:3001';
   }
 
   /**

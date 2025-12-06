@@ -108,7 +108,8 @@ async function init() {
           try {
             const wallet = (window as any).solana;
             if (wallet && wallet.publicKey) {
-              const connection = new Connection('http://127.0.0.1:8899', 'confirmed');
+              const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+              const connection = new Connection(rpcUrl, 'confirmed');
               anchorProvider = getProvider(connection, wallet);
               matchOwnerPubkey = wallet.publicKey as PublicKey;
             }
