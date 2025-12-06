@@ -10,10 +10,6 @@ export class BulletHoleManager {
   private bulletHoleTexture?: THREE.Texture;
   private raycaster: THREE.Raycaster;
   private raycastTargets: THREE.Object3D[] = []; // Only raycast against these
-  
-  // Reusable vectors to reduce GC pressure
-  private tempVector = new THREE.Vector3();
-  private tempNormal = new THREE.Vector3();
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;

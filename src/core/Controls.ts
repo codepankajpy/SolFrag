@@ -16,7 +16,6 @@ export class Controls {
   // Camera recoil system (enari-engine pattern)
   private recoilIndex = 1;
   private yawDirection = -1;
-  private recoilAccumulation = new THREE.Vector3(0, 0, 0);
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;

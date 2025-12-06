@@ -13,7 +13,7 @@ export class Physics {
     this.world = new RAPIER.World(gravity);
   }
 
-  public step(deltaTime: number): void {
+  public step(_deltaTime: number): void {
     if (this.world) {
       this.world.step();
     }

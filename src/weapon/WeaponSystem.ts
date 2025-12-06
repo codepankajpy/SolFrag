@@ -21,7 +21,6 @@ export class WeaponSystem {
   
   // Recoil state
   private recoilEffect = 0;
-  private recoilRecoverySpeed = 5;
   
   // Switch animation
   private switchVelocity = 0;
@@ -68,7 +67,7 @@ export class WeaponSystem {
   /**
    * Update weapon animations and effects
    */
-  public update(deltaTime: number, playerVelocity: THREE.Vector3, isMoving: boolean, rotationDelta: { x: number; y: number }): void {
+  public update(deltaTime: number, _playerVelocity: THREE.Vector3, isMoving: boolean, rotationDelta: { x: number; y: number }): void {
     if (!this.weaponMesh) return;
 
     // Update animations

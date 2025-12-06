@@ -14,7 +14,6 @@ export class Player {
   // Physics
   private physics: Physics;
   private rigidBody: RAPIER.RigidBody | null = null;
-  private collider: RAPIER.Collider | null = null;
   
   // Camera
   private camera: THREE.PerspectiveCamera;
@@ -22,7 +21,6 @@ export class Player {
   // Player model
   private playerModel?: PlayerModel;
   private scene?: THREE.Scene;
-  private showModel: boolean = true; // Show model but hide head in first-person
   
   // Movement state
   private moveForward = false;
@@ -117,7 +115,7 @@ export class Player {
       .setFriction(0.0)
       .setRestitution(0.0);
     
-    this.collider = world.createCollider(colliderDesc, this.rigidBody);
+    world.createCollider(colliderDesc, this.rigidBody);
   }
 
   private setupKeyboardControls(): void {
@@ -334,7 +332,6 @@ export class Player {
    * Toggle between first-person (hidden) and third-person (full model visible)
    */
   public setModelVisible(visible: boolean): void {
-    this.showModel = visible;
     const model = this.playerModel?.getModel();
     if (model) {
       model.visible = visible;

@@ -18,8 +18,11 @@ export class NetworkClient {
   private onPlayerDiedCallback?: (shooterId: string, victimId: string, shooterName?: string, victimName?: string) => void;
   private onDisconnectedCallback?: () => void;
   private customHandlers: Map<string, (data: any) => void> = new Map();
+  private serverUrl: string;
 
-  constructor(private serverUrl: string = 'ws://localhost:3001') {}
+  constructor(serverUrl: string = 'ws://localhost:3001') {
+    this.serverUrl = serverUrl;
+  }
 
   /**
    * Connect to the game server

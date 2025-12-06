@@ -8,7 +8,6 @@ export class Scene {
   private physics: Physics | null = null;
   private groundBody: any = null;
   private mapLoader: MapLoader | null = null;
-  private mapLoaded: boolean = false;
   public bulletHoleManager: BulletHoleManager;
 
   constructor() {
@@ -36,7 +35,6 @@ export class Scene {
     
     if (map) {
       this.instance.add(map);
-      this.mapLoaded = true;
       
       // Register map for raycasting (optimize: only raycast against map, not weapons)
       this.bulletHoleManager.setRaycastTargets([map]);

@@ -23,7 +23,7 @@ export class Scoreboard {
     // Display exactly two entries if available, else show what exists
     const text = entries
       .slice(0, 2)
-      .map(([name, points], idx) => `${name} - ${points}`)
+      .map(([name, points], _idx) => `${name} - ${points}`)
       .join(' | ');
     this.el.textContent = text || 'Waiting for players...';
   }

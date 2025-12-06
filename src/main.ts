@@ -21,8 +21,6 @@ import { AudioSystem } from './audio/AudioSystem';
 let player: Player;
 let physics: Physics;
 let lastTime = 0;
-let gameStarted = false;
-let playerUsername = '';
 let networkClient: NetworkClient;
 let audioSystem: AudioSystem;
 let remotePlayers: Map<string, RemotePlayer> = new Map();
@@ -90,7 +88,6 @@ async function init() {
     // Show home screen
     homeScreen.show();
     homeScreen.onPlay(async (username: string) => {
-      playerUsername = username;
       homeScreen.hide();
       
       // Try to connect to multiplayer server
@@ -293,7 +290,7 @@ async function init() {
           }
         });
         
-        networkClient.onPlayerShot((playerId, position, direction) => {
+        networkClient.onPlayerShot((_playerId, position, _direction) => {
           // Play 3D positional gunshot sound
           const soundPos = new THREE.Vector3(position.x, position.y, position.z);
           audioSystem.playPositionalSound('gunshot', soundPos, 0.5, 100);
@@ -302,7 +299,6 @@ async function init() {
         await networkClient.connect(username);
         
         loadingScreen.hide();
-        gameStarted = true;
         
         // Lock pointer when game starts
         controls.lockPointer();
@@ -317,8 +313,6 @@ async function init() {
         
         // Show notification for single-player
         notifications.showPlayerJoined(username);
-        
-        gameStarted = true;
         
         // Lock pointer when game starts
         controls.lockPointer();

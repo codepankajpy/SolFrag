@@ -72,3 +72,9 @@ Cargo.lock
 *.tmp
 *.temp
 .cache/
+
+# Bun
+bun.lockb
+
+# Vercel
+.vercel
