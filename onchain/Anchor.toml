@@ -1,0 +1,15 @@
+[programs.localnet]
+fps_game = "Fgme111111111111111111111111111111111111111"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+create = "anchor run create"
+
+[test]
+startup_wait = 120000

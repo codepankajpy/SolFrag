@@ -17,6 +17,7 @@ export class NetworkClient {
   private onPlayerHitCallback?: (shooterId: string, victimId: string, damage: number) => void;
   private onPlayerDiedCallback?: (shooterId: string, victimId: string, shooterName?: string, victimName?: string) => void;
   private onDisconnectedCallback?: () => void;
+  private customHandlers: Map<string, (data: any) => void> = new Map();
 
   constructor(private serverUrl: string = 'ws://localhost:3001') {}
 
@@ -132,7 +133,9 @@ export class NetworkClient {
         break;
 
       default:
-        console.log('Unknown message type:', message.type);
+        const handler = this.customHandlers.get(String(message.type));
+        if (handler) handler(message.data);
+        else console.log('Unknown message type:', message.type);
     }
   }
 
@@ -187,6 +190,10 @@ export class NetworkClient {
 
   public onDisconnected(callback: () => void): void {
     this.onDisconnectedCallback = callback;
+  }
+
+  public onMessage(type: string, handler: (data: any) => void): void {
+    this.customHandlers.set(type, handler);
   }
 
   /**

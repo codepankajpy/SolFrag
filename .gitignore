@@ -1,3 +1,38 @@
+# Dependencies
+node_modules/
+server/node_modules/
+onchain/node_modules/
+
+# Build outputs
+dist/
+build/
+server/dist/
+onchain/target/
+onchain/.anchor/
+.vite/
+vite-cache/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+*.local
+
+# Solana/Anchor sensitive files (CRITICAL - DO NOT COMMIT)
+**/*-keypair.json
+**/id.json
+~/.config/solana/id.json
+onchain/target/deploy/*-keypair.json
+onchain/target/idl/*.json
+
+# Solana validator data
+onchain/test-ledger/
+test-ledger/
+.anchor/
+
+# IDL (regenerate with build-onchain)
+public/idl/*.json
+
 # Logs
 logs
 *.log
@@ -6,20 +41,34 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+server/*.log
+server/logs/
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# OS files
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-enari-engine-main/
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# TypeScript
+*.tsbuildinfo
+
+# Cargo/Rust
+Cargo.lock
+**/target/
+**/.cargo/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

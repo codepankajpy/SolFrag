@@ -1,0 +1,14 @@
+[package]
+name = "fps_game"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "fps_game"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anchor-lang = "0.30.1"
+
+[features]
+idl-build = ["anchor-lang/idl-build"]

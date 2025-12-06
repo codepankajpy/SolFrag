@@ -5,6 +5,9 @@ export class HomeScreen {
   private container: HTMLDivElement;
   private onPlayCallback?: (username: string) => void;
   private usernameInput?: HTMLInputElement;
+  private walletAddress: string | null = null;
+  private connectBtn?: HTMLButtonElement;
+  private playBtn?: HTMLDivElement;
   private playerCounter = 1;
   private usedNumbers: Set<number> = new Set();
 
@@ -103,10 +106,65 @@ export class HomeScreen {
     inputContainer.appendChild(this.usernameInput);
     this.container.appendChild(inputContainer);
 
+    // Wallet connect button
+    this.connectBtn = document.createElement('button');
+    this.connectBtn.textContent = 'Connect Wallet';
+    this.connectBtn.style.cssText = `
+      margin-bottom: 16px;
+      color: #fff;
+      font-size: 16px;
+      padding: 12px 24px;
+      border: 2px solid #00d4ff;
+      border-radius: 8px;
+      background: rgba(0, 212, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      letter-spacing: 1px;
+      font-weight: 600;
+      box-shadow: 0 0 16px rgba(0, 212, 255, 0.3);
+    `;
+    this.connectBtn.addEventListener('mouseenter', () => {
+      if (!this.walletAddress) {
+        this.connectBtn!.style.background = 'rgba(0, 212, 255, 0.35)';
+      }
+    });
+    this.connectBtn.addEventListener('mouseleave', () => {
+      if (!this.walletAddress) {
+        this.connectBtn!.style.background = 'rgba(0, 212, 255, 0.2)';
+      }
+    });
+    this.connectBtn.addEventListener('click', async () => {
+      try {
+        // Simple Phantom connect; later replace with Wallet Adapter if desired
+        const provider = (window as any).solana;
+        if (!provider || !provider.isPhantom) {
+          alert('Please install Phantom Wallet');
+          return;
+        }
+        const resp = await provider.connect();
+        this.walletAddress = resp?.publicKey?.toString() || null;
+        if (this.walletAddress) {
+          const short = `${this.walletAddress.slice(0, 4)}...${this.walletAddress.slice(-4)}`;
+          this.connectBtn!.textContent = `Connected: ${short}`;
+          this.connectBtn!.style.background = 'rgba(0, 200, 0, 0.35)';
+          this.connectBtn!.style.borderColor = 'rgba(0, 200, 0, 0.8)';
+          // Enable play button once wallet connected
+          if (this.playBtn) {
+            this.playBtn.style.opacity = '1';
+            (this.playBtn as any).disabled = false;
+          }
+        }
+      } catch (e) {
+        console.error('Wallet connect failed', e);
+        alert('Failed to connect wallet');
+      }
+    });
+    this.container.appendChild(this.connectBtn);
+
     // Click to play button
-    const playButton = document.createElement('div');
-    playButton.textContent = 'CLICK TO PLAY';
-    playButton.style.cssText = `
+    this.playBtn = document.createElement('div');
+    this.playBtn.textContent = 'CLICK TO PLAY';
+    this.playBtn.style.cssText = `
       color: #fff;
       font-size: 28px;
       padding: 20px 50px;
@@ -119,27 +177,35 @@ export class HomeScreen {
       font-weight: bold;
       box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
       animation: float 3s ease-in-out infinite;
+      opacity: 0.5;
     `;
 
     // Hover effect
-    playButton.addEventListener('mouseenter', () => {
-      playButton.style.background = 'rgba(0, 212, 255, 0.3)';
-      playButton.style.boxShadow = '0 0 30px rgba(0, 212, 255, 0.6)';
-      playButton.style.transform = 'scale(1.05)';
+    this.playBtn.addEventListener('mouseenter', () => {
+      if ((this.playBtn as any).disabled) return;
+      this.playBtn!.style.background = 'rgba(0, 212, 255, 0.3)';
+      this.playBtn!.style.boxShadow = '0 0 30px rgba(0, 212, 255, 0.6)';
+      this.playBtn!.style.transform = 'scale(1.05)';
     });
 
-    playButton.addEventListener('mouseleave', () => {
-      playButton.style.background = 'rgba(0, 212, 255, 0.1)';
-      playButton.style.boxShadow = '0 0 20px rgba(0, 212, 255, 0.3)';
-      playButton.style.transform = 'scale(1)';
+    this.playBtn.addEventListener('mouseleave', () => {
+      this.playBtn!.style.background = 'rgba(0, 212, 255, 0.1)';
+      this.playBtn!.style.boxShadow = '0 0 20px rgba(0, 212, 255, 0.3)';
+      this.playBtn!.style.transform = 'scale(1)';
     });
 
-    playButton.addEventListener('click', (e) => {
+    // Disabled until wallet connects
+    (this.playBtn as any).disabled = true;
+    this.playBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if ((this.playBtn as any).disabled) {
+        alert('Please connect your wallet to play');
+        return;
+      }
       this.handlePlay();
     });
 
-    this.container.appendChild(playButton);
+    this.container.appendChild(this.playBtn);
 
     // Controls info
     const controls = document.createElement('div');
@@ -180,7 +246,7 @@ export class HomeScreen {
     
     // If no username provided, generate one
     if (!username) {
-      username = this.generateUsername();
+      username = this.walletAddress ? this.walletAddress : this.generateUsername();
     }
     
     if (this.onPlayCallback) {

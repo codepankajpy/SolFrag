@@ -11,7 +11,10 @@ import { HomeScreen } from './ui/HomeScreen';
 import { GameNotifications } from './ui/GameNotifications';
 import { HealthUI } from './ui/Health';
 import { DeathOverlay } from './ui/DeathOverlay';
+import { Scoreboard } from './ui/Scoreboard';
 import { GAME_CONSTANTS } from '../shared/constants/game.constants';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { getProvider, createMatch, joinMatch, recordKill, finishMatch } from './onchain/anchorClient';
 import { NetworkClient } from './network/NetworkClient';
 import { AudioSystem } from './audio/AudioSystem';
 
@@ -26,7 +29,11 @@ let remotePlayers: Map<string, RemotePlayer> = new Map();
 let localPlayerId: string | null = null;
 let healthUI: any = null;
 let deathOverlay: DeathOverlay | null = null;
+let scoreboard: Scoreboard | null = null;
 let localWasAlive = true;
+let anchorProvider: any = null;
+let currentMatchId: number | null = null;
+let matchOwnerPubkey: PublicKey | null = null;
 
 // Fixed timestep for physics
 const FIXED_TIMESTEP = 1 / 60; // 60Hz physics
@@ -99,6 +106,36 @@ async function init() {
           // Create health UI for local player
           healthUI = new HealthUI();
           deathOverlay = new DeathOverlay();
+          scoreboard = new Scoreboard();
+          // Initialize Anchor provider from Phantom if available
+          try {
+            const wallet = (window as any).solana;
+            if (wallet && wallet.publicKey) {
+              const connection = new Connection('http://127.0.0.1:8899', 'confirmed');
+              anchorProvider = getProvider(connection, wallet);
+              matchOwnerPubkey = wallet.publicKey as PublicKey;
+            }
+          } catch (e) {
+            console.warn('Anchor provider init failed:', e);
+          }
+
+          // Extract a matchId from game state if provided (roomId or matchId)
+          const gsAny: any = gameState || {};
+          if (typeof gsAny.roomId === 'number') currentMatchId = gsAny.roomId;
+          else if (typeof gsAny.matchId === 'number') currentMatchId = gsAny.matchId;
+
+          // If we are the owner and have provider + matchId, create the match on-chain
+          if (anchorProvider && currentMatchId != null && matchOwnerPubkey) {
+            // Heuristic: first player to connect in a room acts as owner
+            (async () => {
+              try {
+                await createMatch(anchorProvider, { matchId: currentMatchId!, winPoints: 3 });
+                console.log('📦 on-chain match created:', currentMatchId);
+              } catch (err) {
+                console.warn('createMatch failed (may already exist):', err);
+              }
+            })();
+          }
 
           console.log('Connected as:', playerId, username);
           notifications.showPlayerJoined(username);
@@ -131,6 +168,17 @@ async function init() {
           const remotePlayer = new RemotePlayer(player.id, player.username, scene.getScene());
           await remotePlayer.load();
           remotePlayers.set(player.id, remotePlayer);
+          // If second player and we have provider/matchId, join on-chain
+          if (anchorProvider && currentMatchId != null && matchOwnerPubkey) {
+            (async () => {
+              try {
+                await joinMatch(anchorProvider, { matchId: currentMatchId!, owner: matchOwnerPubkey! });
+                console.log('✅ on-chain joinMatch done');
+              } catch (err) {
+                console.warn('joinMatch failed (may already joined):', err);
+              }
+            })();
+          }
         });
         
         networkClient.onPlayerLeft((playerId, username) => {
@@ -195,6 +243,54 @@ async function init() {
           void shooterId; void victimId;
           // Show global kill notification
           if (shooterName && victimName) notifications.showKillNotification(shooterName, victimName);
+
+          // Attempt on-chain recordKill if we have enough context
+          if (anchorProvider && currentMatchId != null && matchOwnerPubkey && shooterName && victimName) {
+            try {
+              const toPubkey = (s: string) => {
+                try { return new PublicKey(s); } catch { return null; }
+              };
+              const shooterPk = toPubkey(shooterName);
+              const victimPk = toPubkey(victimName);
+              if (shooterPk && victimPk) {
+                (async () => {
+                  try {
+                    await recordKill(anchorProvider, { matchId: currentMatchId!, owner: matchOwnerPubkey!, shooter: shooterPk, victim: victimPk });
+                    console.log('🔫 on-chain recordKill:', shooterName, '->', victimName);
+                  } catch (err) {
+                    console.warn('recordKill failed:', err);
+                  }
+                })();
+              }
+            } catch (e) {
+              console.warn('recordKill prep failed:', e);
+            }
+          }
+        });
+
+        // Listen for score updates
+        networkClient.onMessage('score_update', ({ scores }: { scores: { [name: string]: number } }) => {
+          if (scoreboard) scoreboard.update(scores);
+        });
+
+        networkClient.onMessage('match_won', ({ winner, scores }: { winner: string; scores: { [name: string]: number } }) => {
+          if (scoreboard) {
+            scoreboard.update(scores);
+            scoreboard.announceWinner(winner);
+          }
+          notifications.showKillNotification(winner, 'won the match');
+
+          // Finish match on-chain
+          if (anchorProvider && currentMatchId != null && matchOwnerPubkey) {
+            (async () => {
+              try {
+                await finishMatch(anchorProvider, { matchId: currentMatchId!, owner: matchOwnerPubkey! });
+                console.log('🏁 on-chain finishMatch:', currentMatchId);
+              } catch (err) {
+                console.warn('finishMatch failed:', err);
+              }
+            })();
+          }
         });
         
         networkClient.onPlayerShot((playerId, position, direction) => {

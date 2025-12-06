@@ -36,12 +36,14 @@ export interface PlayerState {
   health: number;
   alive: boolean;
   username: string;
+  kills?: number;
 }
 
 export interface GameState {
   tick: number;
   timestamp: number;
   players: { [id: string]: PlayerState };
+  scores?: { [username: string]: number };
 }
 
 export interface ShootEvent {
@@ -73,6 +75,8 @@ export enum MessageType {
   PLAYER_SHOT = 'player_shot',
   PLAYER_HIT = 'player_hit',
   PLAYER_DIED = 'player_died',
+  SCORE_UPDATE = 'score_update',
+  MATCH_WON = 'match_won',
 }
 
 export interface NetworkMessage {

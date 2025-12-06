@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "copy-idl": "mkdir -p public/idl && cp onchain/target/idl/fps_game.json public/idl/fps_game.json",
+    "build-onchain": "(cd onchain && anchor build) && npm run copy-idl"
   },
   "devDependencies": {
     "@types/three": "^0.181.0",
@@ -16,6 +18,8 @@
   "dependencies": {
     "@dimforge/rapier3d": "^0.19.3",
     "@dimforge/rapier3d-compat": "^0.19.3",
-    "three": "^0.181.2"
+    "three": "^0.181.2",
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/web3.js": "^1.95.3"
   }
 }

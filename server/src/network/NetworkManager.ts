@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { GameServer } from '../game/GameServer';
+import { Matchmaker } from '../matchmaking/Matchmaker';
 import {
   NetworkMessage,
   MessageType,
@@ -12,6 +13,7 @@ interface Client {
   playerId: string;
   username: string;
   lastUpdate: number;
+  roomId?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export class NetworkManager {
   private broadcastInterval: NodeJS.Timeout | null = null;
   private playerCounter = 1;
   private usedNumbers: Set<number> = new Set();
+  private matchmaker: Matchmaker = new Matchmaker();
 
   constructor(wss: WebSocketServer, gameServer: GameServer) {
     this.wss = wss;
@@ -79,45 +82,47 @@ export class NetworkManager {
 
   private handlePlayerJoin(ws: WebSocket, data: JoinMessage): void {
     const playerId = this.generatePlayerId();
-    
-    // Always generate username on server for consistency
     const username = this.generateUsername();
     
-    const player = this.gameServer.addPlayer(playerId, username);
-    
-    // Register client with username
-    this.clients.set(ws, {
-      ws,
-      playerId,
-      username,
-      lastUpdate: Date.now(),
-    });
-    
-    // Send join confirmation with current game state
-    this.sendMessage(ws, {
-      type: MessageType.PLAYER_JOINED,
-      data: {
+    this.matchmaker.allocateRoom().then(room => {
+      const player = room.server.addPlayer(playerId, username);
+      // Register client with roomId
+      this.clients.set(ws, {
+        ws,
         playerId,
-        gameState: this.gameServer.getGameState(),
-      },
-      timestamp: Date.now(),
-    });
-    
-    // Notify all other players
-    this.broadcastExcept(ws, {
-      type: MessageType.PLAYER_JOINED,
-      data: {
-        player: player.getState(),
-      },
-      timestamp: Date.now(),
+        username,
+        lastUpdate: Date.now(),
+        roomId: room.id,
+      });
+      // Send join confirmation scoped to room
+      this.sendMessage(ws, {
+        type: MessageType.PLAYER_JOINED,
+        data: {
+          playerId,
+          gameState: room.server.getGameState(),
+          roomId: room.id,
+        },
+        timestamp: Date.now(),
+      });
+      // Notify other clients (we will still broadcast globally; clients can filter by roomId)
+      this.broadcastExcept(ws, {
+        type: MessageType.PLAYER_JOINED,
+        data: {
+          player: player.getState(),
+          roomId: room.id,
+        },
+        timestamp: Date.now(),
+      });
+    }).catch(err => {
+      console.error('❌ Matchmaker allocation failed:', err);
     });
   }
 
   private handlePlayerInput(ws: WebSocket, data: any): void {
     const client = this.clients.get(ws);
     if (!client) return;
-    
-    const player = this.gameServer.getPlayer(client.playerId);
+    const room = client.roomId ? this.matchmaker.getRoomById(client.roomId) : undefined;
+    const player = room?.server.getPlayer(client.playerId);
     if (player && data.position && data.rotation) {
       // Update player state from client position update
       player.updateFromClient(data.position, data.rotation, data.velocity || { x: 0, y: 0, z: 0 });
@@ -128,6 +133,8 @@ export class NetworkManager {
   private handlePlayerShoot(ws: WebSocket, data: any): void {
     const client = this.clients.get(ws);
     if (!client) return;
+    const room = client.roomId ? this.matchmaker.getRoomById(client.roomId) : undefined;
+    if (!room) return;
     
     // Broadcast shoot event to all clients
     this.broadcast({
@@ -135,13 +142,14 @@ export class NetworkManager {
       data: {
         playerId: client.playerId,
         ...data,
+        roomId: client.roomId,
       },
       timestamp: Date.now(),
     });
 
     // Server-side hit detection (best-effort): simple angle + distance check
     try {
-      const shooter = this.gameServer.getPlayer(client.playerId);
+      const shooter = room.server.getPlayer(client.playerId);
       if (!shooter) return;
 
       const origin = data.position; // {x,y,z}
@@ -151,7 +159,7 @@ export class NetworkManager {
       const ndir = { x: dir.x/dirLen, y: dir.y/dirLen, z: dir.z/dirLen };
 
       // Iterate potential victims
-      for (const [id, target] of this.gameServer.getPlayers()) {
+      for (const [id, target] of room.server.getPlayers()) {
         if (id === client.playerId) continue; // don't hit self
 
         const state = target.getState();
@@ -182,9 +190,9 @@ export class NetworkManager {
         const horizontalDist = Math.sqrt(dx * dx + dz * dz);
         const verticalDist = Math.abs(state.position.y - closest.y);
 
-        // Consider hit if horizontal distance is within player radius + margin
-        const HIT_MARGIN = 0.35; // meters
-        const VERTICAL_MARGIN = 0.25; // meters allowance above/below
+        // Consider hit if within expanded capsule (bigger and taller)
+        const HIT_MARGIN = 0.6; // meters (wider)
+        const VERTICAL_MARGIN = 0.6; // meters (taller)
 
         const halfHeight = GAME_CONSTANTS.PLAYER_HEIGHT / 2;
         const verticalAllowed = halfHeight + VERTICAL_MARGIN;
@@ -209,6 +217,7 @@ export class NetworkManager {
             victimId: id,
             damage,
             hitPosition: { x: state.position.x, y: state.position.y, z: state.position.z },
+            roomId: client.roomId,
           },
           timestamp: Date.now(),
         });
@@ -222,13 +231,29 @@ export class NetworkManager {
               victimId: id,
               shooterName: client.username,
               victimName: state.username,
+              roomId: client.roomId,
             },
             timestamp: Date.now(),
           });
 
+          // Update scores and check win condition (per room)
+          const result = room.server.addKill(client.username);
+          this.broadcast({
+            type: MessageType.SCORE_UPDATE,
+            data: { scores: result.scores },
+            timestamp: Date.now(),
+          });
+          if (result.winner) {
+            this.broadcast({
+              type: MessageType.MATCH_WON,
+              data: { winner: result.winner, scores: result.scores },
+              timestamp: Date.now(),
+            });
+          }
+
           // Schedule respawn after configured time
           setTimeout(() => {
-            this.gameServer.respawnPlayer(target);
+            room.server.respawnPlayer(target);
             // After respawn, clients get updated state on broadcast loop
           }, GAME_CONSTANTS.RESPAWN_TIME);
         }
@@ -244,7 +269,11 @@ export class NetworkManager {
       // Free up the username number
       this.freeUsername(client.username);
       
-      this.gameServer.removePlayer(client.playerId);
+      if (client.roomId) {
+        this.matchmaker.removePlayerFromRoom(client.roomId, client.playerId);
+      } else {
+        this.gameServer.removePlayer(client.playerId);
+      }
       this.clients.delete(ws);
       
       // Notify all clients with username
@@ -253,6 +282,7 @@ export class NetworkManager {
         data: {
           playerId: client.playerId,
           username: client.username,
+          roomId: client.roomId,
         },
         timestamp: Date.now(),
       });
@@ -266,13 +296,18 @@ export class NetworkManager {
     const broadcastRate = 1000 / GAME_CONSTANTS.TICK_RATE;
     
     this.broadcastInterval = setInterval(() => {
-      const gameState = this.gameServer.getGameState();
-      
-      this.broadcast({
-        type: MessageType.GAME_STATE,
-        data: gameState,
-        timestamp: Date.now(),
-      });
+      const now = Date.now();
+      // Send per-client their room's game state
+      for (const [ws, client] of this.clients) {
+        const room = client.roomId ? this.matchmaker.getRoomById(client.roomId) : undefined;
+        if (!room) continue;
+        const gameState = room.server.getGameState();
+        this.sendMessage(ws, {
+          type: MessageType.GAME_STATE,
+          data: { ...gameState, roomId: client.roomId },
+          timestamp: now,
+        });
+      }
     }, broadcastRate);
   }
 

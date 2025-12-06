@@ -14,6 +14,8 @@ export class GameServer {
   private lastUpdate: number = 0;
   private running: boolean = false;
   private tickInterval: NodeJS.Timeout | null = null;
+  private scores: Map<string, number> = new Map();
+  private winPoints = 3;
   private usedSpawnIndices: Set<number> = new Set();
 
   async initialize(): Promise<void> {
@@ -89,6 +91,7 @@ export class GameServer {
     const { spawn, index } = this.allocateSpawn();
     const player = new ServerPlayer(id, username, this.world!, this.rapier!, spawn, index);
     this.players.set(id, player);
+    this.scores.set(username, 0);
     
     console.log(`✅ Player joined: ${username} (${id})`);
     console.log(`👥 Total players: ${this.players.size}`);
@@ -136,6 +139,7 @@ export class GameServer {
       }
       player.destroy();
       this.players.delete(id);
+      this.scores.delete(player.getState().username);
       console.log(`👋 Player left: ${player.getState().username} (${id})`);
       console.log(`👥 Total players: ${this.players.size}`);
     }
@@ -156,7 +160,19 @@ export class GameServer {
       tick: this.tick,
       timestamp: Date.now(),
       players: playersState,
+      scores: Object.fromEntries(this.scores.entries()),
     };
+  }
+
+  addKill(shooterName: string): { winner?: string; scores: { [name: string]: number } } {
+    const current = this.scores.get(shooterName) ?? 0;
+    const next = current + 1;
+    this.scores.set(shooterName, next);
+    const scoresObj = Object.fromEntries(this.scores.entries());
+    if (next >= this.winPoints) {
+      return { winner: shooterName, scores: scoresObj };
+    }
+    return { scores: scoresObj };
   }
 
   getPlayers(): Map<string, ServerPlayer> {

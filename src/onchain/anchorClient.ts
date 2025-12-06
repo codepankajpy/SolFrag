@@ -1,0 +1,75 @@
+import * as anchor from "@coral-xyz/anchor";
+import { AnchorProvider, Program } from "@coral-xyz/anchor";
+import type { Idl } from "@coral-xyz/anchor";
+import { Connection, PublicKey } from "@solana/web3.js";
+
+// Program constants
+export const PROGRAM_ID = new PublicKey("HmabEu5cvHdCUAvnAPB4rRbYonvKDKDx5v9cTYQut7LR");
+export const DEFAULT_RPC = "http://127.0.0.1:8899";
+
+export interface MatchIds {
+  matchId: number; // u64 in program, we pass as number and convert to le bytes in Anchor
+  winPoints: number; // e.g., 3
+}
+
+export async function loadIdl(): Promise<Idl> {
+  const res = await fetch("/idl/fps_game.json");
+  if (!res.ok) throw new Error(`IDL fetch failed: ${res.status}`);
+  return (await res.json()) as Idl;
+}
+
+export function getProvider(connection: Connection, wallet: any): AnchorProvider {
+  // wallet expected to provide: publicKey, signTransaction, signAllTransactions
+  return new AnchorProvider(connection, wallet, { preflightCommitment: "confirmed" });
+}
+
+export async function getProgram(provider: AnchorProvider): Promise<Program> {
+  const idl = await loadIdl();
+  return new Program(idl, PROGRAM_ID, provider);
+}
+
+// Helpers to interact with the program
+export async function createMatch(provider: AnchorProvider, args: MatchIds) {
+  const program = await getProgram(provider);
+  const owner = provider.wallet.publicKey;
+  const [matchPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("match"), owner.toBuffer(), Buffer.from(new Uint8Array(new BigUint64Array([BigInt(args.matchId)]).buffer))],
+    PROGRAM_ID
+  );
+
+  return program.methods
+    .createMatch(new anchor.BN(args.matchId), args.winPoints)
+    .accounts({ owner, match: matchPda })
+    .rpc();
+}
+
+export async function joinMatch(provider: AnchorProvider, args: { matchId: number; owner: PublicKey }) {
+  const program = await getProgram(provider);
+  const player = provider.wallet.publicKey;
+  const [matchPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("match"), args.owner.toBuffer(), Buffer.from(new Uint8Array(new BigUint64Array([BigInt(args.matchId)]).buffer))],
+    PROGRAM_ID
+  );
+  return program.methods.joinMatch().accounts({ player, match: matchPda }).rpc();
+}
+
+export async function recordKill(provider: AnchorProvider, args: { matchId: number; owner: PublicKey; shooter: PublicKey; victim: PublicKey }) {
+  const program = await getProgram(provider);
+  const [matchPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("match"), args.owner.toBuffer(), Buffer.from(new Uint8Array(new BigUint64Array([BigInt(args.matchId)]).buffer))],
+    PROGRAM_ID
+  );
+  return program.methods
+    .recordKill()
+    .accounts({ match: matchPda, shooter: args.shooter, victim: args.victim })
+    .rpc();
+}
+
+export async function finishMatch(provider: AnchorProvider, args: { matchId: number; owner: PublicKey }) {
+  const program = await getProgram(provider);
+  const [matchPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("match"), args.owner.toBuffer(), Buffer.from(new Uint8Array(new BigUint64Array([BigInt(args.matchId)]).buffer))],
+    PROGRAM_ID
+  );
+  return program.methods.finishMatch().accounts({ match: matchPda }).rpc();
+}

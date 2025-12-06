@@ -1,0 +1,7 @@
+[workspace]
+members = [
+  "programs/fps_game"
+]
+
+[profile.release]
+overflow-checks = true
