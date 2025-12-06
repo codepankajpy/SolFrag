@@ -54,16 +54,15 @@ export class NetworkClient {
             // Resolve on first successful join
             if (message.type === 'player_joined' && !this.playerId) {
               this.playerId = message.data.playerId;
-              this.matchPda = message.data.matchPda || null;
               this.roomId = message.data.roomId || null;
               
-              console.log(`🎮 Joined room ${this.roomId}, Match PDA: ${this.matchPda}`);
+              console.log(`🎮 Joined room ${this.roomId}`);
               
               // Get username from game state
               const username = message.data.gameState?.players?.[message.data.playerId]?.username || 'Unknown';
               
               if (this.onConnectedCallback) {
-                this.onConnectedCallback(message.data.playerId, username, message.data.gameState, this.matchPda || undefined);
+                this.onConnectedCallback(message.data.playerId, username, message.data.gameState);
               }
               resolve();
             }
@@ -268,11 +267,15 @@ export class NetworkClient {
     return this.playerId;
   }
 
-  public getMatchPda(): string | null {
-    return this.matchPda;
-  }
-
   public getRoomId(): number | null {
     return this.roomId;
+  }
+
+  public setMatchPda(pda: string): void {
+    this.matchPda = pda;
+  }
+
+  public getMatchPda(): string | null {
+    return this.matchPda;
   }
 }

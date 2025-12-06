@@ -121,14 +121,9 @@ async function init() {
         networkClient = new NetworkClient();
         
         // Setup network callbacks
-        networkClient.onConnected((playerId, username, gameState, matchPda) => {
+        networkClient.onConnected((playerId, username, gameState) => {
           localPlayerId = playerId;
-          
-          // Store match PDA from server
-          if (matchPda) {
-            console.log('⛓️  Received match PDA from server:', matchPda);
-            currentMatchId = networkClient.getRoomId();
-          }
+          currentMatchId = networkClient.getRoomId();
           
           // Create health UI for local player
           healthUI = new HealthUI();
@@ -137,10 +132,50 @@ async function init() {
           
           console.log('🎮 Connected to game', { 
             playerId, 
-            matchId: currentMatchId, 
-            matchPda,
+            roomId: currentMatchId,
             wallet: walletAddress 
           });
+
+          // Create match on-chain if we have wallet
+          if (anchorProvider && currentMatchId != null && matchOwnerPubkey) {
+            console.log('🚀 Creating on-chain match...', { 
+              matchId: currentMatchId, 
+              owner: matchOwnerPubkey.toString() 
+            });
+            
+            (async () => {
+              try {
+                const signature = await createMatch(anchorProvider, { matchId: currentMatchId!, winPoints: 3 });
+                console.log('✅ Match created on-chain:', signature);
+                
+                // Calculate and store match PDA
+                const [matchPda] = PublicKey.findProgramAddressSync(
+                  [
+                    Buffer.from('match'),
+                    matchOwnerPubkey!.toBuffer(),
+                    Buffer.from(new Uint8Array(new BigUint64Array([BigInt(currentMatchId!)]).buffer))
+                  ],
+                  new PublicKey('HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51')
+                );
+                networkClient.setMatchPda(matchPda.toString());
+                console.log('📍 Match PDA:', matchPda.toString());
+              } catch (err) {
+                console.warn('⚠️ Match creation failed (may already exist):', err);
+                // Still calculate PDA in case match exists
+                if (currentMatchId != null && matchOwnerPubkey) {
+                  const [matchPda] = PublicKey.findProgramAddressSync(
+                    [
+                      Buffer.from('match'),
+                      matchOwnerPubkey.toBuffer(),
+                      Buffer.from(new Uint8Array(new BigUint64Array([BigInt(currentMatchId)]).buffer))
+                    ],
+                    new PublicKey('HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51')
+                  );
+                  networkClient.setMatchPda(matchPda.toString());
+                }
+              }
+            })();
+          }
                 console.log('✅ On-chain match created successfully!');
                 console.log('📦 Match ID:', currentMatchId);
                 console.log('🔗 Transaction:', signature);
