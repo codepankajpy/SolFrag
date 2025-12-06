@@ -60,9 +60,38 @@ export async function recordKill(provider: AnchorProvider, args: { matchId: numb
     PROGRAM_ID
   );
   return program.methods
-    .recordKill()
-    .accounts({ match: matchPda, shooter: args.shooter, victim: args.victim })
+    .recordKill(args.victim)
+    .accounts({ match: matchPda, shooter: args.shooter })
     .rpc();
+}
+
+/**
+ * Prepare and sign a recordKill transaction (to be sent to server)
+ */
+export async function prepareRecordKillTransaction(
+  provider: AnchorProvider,
+  args: { matchPda: string; victim: PublicKey }
+): Promise<string> {
+  const program = await getProgram(provider);
+  const shooter = provider.wallet.publicKey;
+  const matchPda = new PublicKey(args.matchPda);
+  
+  // Build transaction
+  const tx = await program.methods
+    .recordKill(args.victim)
+    .accounts({ match: matchPda, shooter })
+    .transaction();
+  
+  // Get recent blockhash
+  const { blockhash } = await provider.connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = shooter;
+  
+  // Sign transaction with wallet
+  const signedTx = await provider.wallet.signTransaction(tx);
+  
+  // Serialize to base64
+  return signedTx.serialize().toString('base64');
 }
 
 export async function finishMatch(provider: AnchorProvider, args: { matchId: number; owner: PublicKey }) {

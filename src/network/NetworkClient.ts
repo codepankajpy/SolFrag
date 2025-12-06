@@ -7,9 +7,11 @@ export class NetworkClient {
   private ws: WebSocket | null = null;
   private connected = false;
   private playerId: string | null = null;
+  private matchPda: string | null = null; // Store match PDA from server
+  private roomId: number | null = null;
   
   // Callbacks
-  private onConnectedCallback?: (playerId: string, username: string, gameState: GameState) => void;
+  private onConnectedCallback?: (playerId: string, username: string, gameState: GameState, matchPda?: string) => void;
   private onPlayerJoinedCallback?: (player: PlayerState) => void;
   private onPlayerLeftCallback?: (playerId: string, username: string) => void;
   private onGameStateCallback?: (gameState: GameState) => void;
@@ -27,7 +29,7 @@ export class NetworkClient {
   /**
    * Connect to the game server
    */
-  public connect(username: string): Promise<void> {
+  public connect(username: string, walletAddress?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         this.ws = new WebSocket(this.serverUrl);
@@ -36,10 +38,10 @@ export class NetworkClient {
           console.log('✅ Connected to game server');
           this.connected = true;
           
-          // Send join message
+          // Send join message with wallet address
           this.send({
             type: 'player_join',
-            data: { username },
+            data: { username, walletAddress },
             timestamp: Date.now(),
           });
         };
@@ -52,12 +54,16 @@ export class NetworkClient {
             // Resolve on first successful join
             if (message.type === 'player_joined' && !this.playerId) {
               this.playerId = message.data.playerId;
+              this.matchPda = message.data.matchPda || null;
+              this.roomId = message.data.roomId || null;
+              
+              console.log(`🎮 Joined room ${this.roomId}, Match PDA: ${this.matchPda}`);
               
               // Get username from game state
               const username = message.data.gameState?.players?.[message.data.playerId]?.username || 'Unknown';
               
               if (this.onConnectedCallback) {
-                this.onConnectedCallback(message.data.playerId, username, message.data.gameState);
+                this.onConnectedCallback(message.data.playerId, username, message.data.gameState, this.matchPda || undefined);
               }
               resolve();
             }
@@ -211,6 +217,25 @@ export class NetworkClient {
   }
 
   /**
+   * Send signed record_kill transaction to server
+   */
+  public sendRecordKillTransaction(
+    serializedTransaction: string,
+    shooterPubkey: string,
+    victimPubkey: string
+  ): void {
+    this.send({
+      type: 'record_kill_tx',
+      data: {
+        serializedTransaction,
+        shooterPubkey,
+        victimPubkey,
+      },
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
    * Send player input/position update to server
    */
   public sendPlayerUpdate(
@@ -241,5 +266,13 @@ export class NetworkClient {
 
   public getPlayerId(): string | null {
     return this.playerId;
+  }
+
+  public getMatchPda(): string | null {
+    return this.matchPda;
+  }
+
+  public getRoomId(): number | null {
+    return this.roomId;
   }
 }

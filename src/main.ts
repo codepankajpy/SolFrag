@@ -14,7 +14,7 @@ import { DeathOverlay } from './ui/DeathOverlay';
 import { Scoreboard } from './ui/Scoreboard';
 import { GAME_CONSTANTS } from '../shared/constants/game.constants';
 import { Connection, PublicKey } from '@solana/web3.js';
-import { getProvider, createMatch, joinMatch, recordKill, finishMatch } from './onchain/anchorClient';
+import { getProvider, createMatch, joinMatch, recordKill, finishMatch, prepareRecordKillTransaction } from './onchain/anchorClient';
 import { NetworkClient } from './network/NetworkClient';
 import { AudioSystem } from './audio/AudioSystem';
 
@@ -95,59 +95,52 @@ async function init() {
         loadingScreen.show();
         loadingScreen.setProgress(50, 'Connecting to server...');
         
+        // Initialize wallet and Anchor provider BEFORE connecting
+        let walletAddress: string | undefined;
+        try {
+          const wallet = (window as any).solana;
+          if (wallet) {
+            // Request connection if not already connected
+            if (!wallet.isConnected) {
+              await wallet.connect();
+            }
+            
+            if (wallet.publicKey) {
+              walletAddress = wallet.publicKey.toString();
+              const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
+              const connection = new Connection(rpcUrl, 'confirmed');
+              anchorProvider = getProvider(connection, wallet);
+              matchOwnerPubkey = wallet.publicKey as PublicKey;
+              console.log('✅ Wallet connected:', walletAddress);
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Wallet connection failed:', e);
+        }
+        
         networkClient = new NetworkClient();
         
         // Setup network callbacks
-        networkClient.onConnected((playerId, username, gameState) => {
+        networkClient.onConnected((playerId, username, gameState, matchPda) => {
           localPlayerId = playerId;
+          
+          // Store match PDA from server
+          if (matchPda) {
+            console.log('⛓️  Received match PDA from server:', matchPda);
+            currentMatchId = networkClient.getRoomId();
+          }
+          
           // Create health UI for local player
           healthUI = new HealthUI();
           deathOverlay = new DeathOverlay();
           scoreboard = new Scoreboard();
           
-          // Initialize Anchor provider from Phantom if available
-          try {
-            const wallet = (window as any).solana;
-            console.log('🔍 Checking Phantom wallet...', { 
-              exists: !!wallet, 
-              connected: wallet?.isConnected, 
-              publicKey: wallet?.publicKey?.toString() 
-            });
-            
-            if (wallet && wallet.publicKey) {
-              const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-              console.log('🔗 Connecting to Solana RPC:', rpcUrl);
-              const connection = new Connection(rpcUrl, 'confirmed');
-              anchorProvider = getProvider(connection, wallet);
-              matchOwnerPubkey = wallet.publicKey as PublicKey;
-              console.log('✅ Anchor provider initialized');
-              console.log('👛 Wallet address:', wallet.publicKey.toString());
-              console.log('🎮 Program ID:', 'HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51');
-            } else {
-              console.warn('⚠️ Phantom wallet not connected. Connect wallet before playing.');
-            }
-          } catch (e) {
-            console.error('❌ Anchor provider init failed:', e);
-          }
-
-          // Extract a matchId from game state if provided (roomId or matchId)
-          const gsAny: any = gameState || {};
-          if (typeof gsAny.roomId === 'number') currentMatchId = gsAny.roomId;
-          else if (typeof gsAny.matchId === 'number') currentMatchId = gsAny.matchId;
-          
-          console.log('🎲 Match ID extracted:', currentMatchId);
-          console.log('📊 Game state:', { roomId: gsAny.roomId, matchId: gsAny.matchId });
-
-          // If we are the owner and have provider + matchId, create the match on-chain
-          if (anchorProvider && currentMatchId != null && matchOwnerPubkey) {
-            console.log('🚀 Attempting to create on-chain match...', { 
-              matchId: currentMatchId, 
-              owner: matchOwnerPubkey.toString() 
-            });
-            // Heuristic: first player to connect in a room acts as owner
-            (async () => {
-              try {
-                const signature = await createMatch(anchorProvider, { matchId: currentMatchId!, winPoints: 3 });
+          console.log('🎮 Connected to game', { 
+            playerId, 
+            matchId: currentMatchId, 
+            matchPda,
+            wallet: walletAddress 
+          });
                 console.log('✅ On-chain match created successfully!');
                 console.log('📦 Match ID:', currentMatchId);
                 console.log('🔗 Transaction:', signature);
@@ -270,26 +263,48 @@ async function init() {
           // Show global kill notification
           if (shooterName && victimName) notifications.showKillNotification(shooterName, victimName);
 
-          // Attempt on-chain recordKill if we have enough context
-          if (anchorProvider && currentMatchId != null && matchOwnerPubkey && shooterName && victimName) {
-            try {
-              const toPubkey = (s: string) => {
-                try { return new PublicKey(s); } catch { return null; }
-              };
-              const shooterPk = toPubkey(shooterName);
-              const victimPk = toPubkey(victimName);
-              if (shooterPk && victimPk) {
-                (async () => {
-                  try {
-                    await recordKill(anchorProvider, { matchId: currentMatchId!, owner: matchOwnerPubkey!, shooter: shooterPk, victim: victimPk });
-                    console.log('🔫 on-chain recordKill:', shooterName, '->', victimName);
-                  } catch (err) {
-                    console.warn('recordKill failed:', err);
+          // NEW DAPP FLOW: Send signed transaction to backend
+          if (anchorProvider && networkClient) {
+            const matchPda = networkClient.getMatchPda();
+            
+            if (matchPda) {
+              (async () => {
+                try {
+                  // Parse wallet addresses if they are valid pubkeys
+                  const toPubkey = (s: string) => {
+                    try { return new PublicKey(s); } catch { return null; }
+                  };
+                  
+                  // In proper dApp, shooterName/victimName would be wallet addresses
+                  // For now, we'll use the connected wallet as shooter
+                  const shooterPk = matchOwnerPubkey; // Current player's wallet
+                  const victimPk = toPubkey(victimName); // Try to parse victim as pubkey
+                  
+                  if (!victimPk) {
+                    console.warn('⚠️ Cannot record kill: victim is not a valid wallet address');
+                    return;
                   }
-                })();
-              }
-            } catch (e) {
-              console.warn('recordKill prep failed:', e);
+                  
+                  // Prepare signed transaction
+                  const serializedTx = await prepareRecordKillTransaction(anchorProvider, {
+                    matchPda,
+                    victim: victimPk,
+                  });
+                  
+                  // Send to backend to broadcast
+                  networkClient.sendRecordKillTransaction(
+                    serializedTx,
+                    shooterPk!.toString(),
+                    victimPk.toString()
+                  );
+                  
+                  console.log('📤 Sent recordKill transaction to server');
+                } catch (err) {
+                  console.warn('❌ Failed to prepare kill transaction:', err);
+                }
+              })();
+            } else {
+              console.warn('⚠️ No match PDA available for on-chain kill recording');
             }
           }
         });
@@ -325,7 +340,8 @@ async function init() {
           audioSystem.playPositionalSound('gunshot', soundPos, 0.5, 100);
         });
         
-        await networkClient.connect(username);
+        // Connect to server with wallet address
+        await networkClient.connect(username, walletAddress);
         
         loadingScreen.hide();
         
