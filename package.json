@@ -1,22 +1,17 @@
 {
-  "name": "fps-game-monorepo",
+  "name": "fps-game",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "workspaces": [
-    ".",
-    "server"
-  ],
   "scripts": {
     "dev": "vite",
-    "dev:server": "npm -w server run dev",
+    "dev:server": "cd server && npm run dev",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "tsc && vite build",
-    "build:server": "npm -w server run build",
+    "build:server": "cd server && npm run build",
     "preview": "vite preview",
     "copy-idl": "mkdir -p public/idl && cp onchain/target/idl/fps_game.json public/idl/fps_game.json",
-    "build-onchain": "(cd onchain && anchor build) && npm run copy-idl",
-    "postinstall": "npm -w server install"
+    "build-onchain": "(cd onchain && anchor build) && npm run copy-idl"
   },
   "devDependencies": {
     "@types/three": "^0.181.0",
