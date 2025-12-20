@@ -13,77 +13,46 @@ export class LoadingScreen {
   constructor() {
     this.container = document.createElement('div');
     this.container.id = 'loading-screen';
-    this.container.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 10000;
-      font-family: 'Arial', sans-serif;
+    // add shared font import + heading styles (Ethnocentric for headings)
+    const lsStyle = document.createElement('style');
+    lsStyle.textContent = `
+      @import url("https://fonts.cdnfonts.com/css/ethnocentric");
+      #loading-screen { background: #0a0a0a; display: flex; flex-direction: column; justify-content: center; align-items: center; position: fixed; inset: 0; z-index: 10000; font-family: Inter, system-ui, sans-serif; }
+      #loading-screen h1 { font-family: 'Ethnocentric', Inter, sans-serif; color: #fff; font-size: 64px; letter-spacing: 6px; margin-bottom: 28px; text-shadow: 0 8px 40px rgba(249,115,22,0.16); }
+      #loading-screen .ls-progress { width: 480px; height: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; overflow: hidden; box-shadow: 0 6px 30px rgba(0,0,0,0.4); }
+      #loading-screen .ls-progress .fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ffb069 0%, #f97316 60%); box-shadow: 0 6px 30px rgba(249,115,22,0.18); transition: width 0.3s ease; }
+      #loading-screen .ls-percent { color: #f97316; font-size: 20px; margin-top: 12px; font-weight: 700; }
+      #loading-screen .ls-status { color: rgba(255,255,255,0.72); font-size: 15px; margin-top: 12px; min-height: 28px; }
     `;
+    document.head.appendChild(lsStyle);
+
+    this.container.style.cssText = `position: fixed; inset: 0;`;
 
     // Game title
     const title = document.createElement('h1');
-    title.textContent = 'FPS GAME';
-    title.style.cssText = `
-      color: #fff;
-      font-size: 48px;
-      margin-bottom: 40px;
-      text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-      letter-spacing: 8px;
-    `;
+    title.textContent = 'SolFrag';
+    title.style.cssText = `font-size: 64px; margin-bottom: 28px;`;
     this.container.appendChild(title);
 
     // Progress bar container
     this.progressBar = document.createElement('div');
-    this.progressBar.style.cssText = `
-      width: 400px;
-      height: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    `;
+    this.progressBar.className = 'ls-progress';
 
     // Progress fill
     this.progressFill = document.createElement('div');
-    this.progressFill.style.cssText = `
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(90deg, #00d4ff 0%, #0099ff 100%);
-      border-radius: 4px;
-      transition: width 0.3s ease;
-      box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
-    `;
+    this.progressFill.className = 'fill';
     this.progressBar.appendChild(this.progressFill);
     this.container.appendChild(this.progressBar);
 
     // Percent text
     this.percentText = document.createElement('div');
-    this.percentText.style.cssText = `
-      color: #00d4ff;
-      font-size: 24px;
-      margin-bottom: 10px;
-      font-weight: bold;
-    `;
+    this.percentText.className = 'ls-percent';
     this.percentText.textContent = '0%';
     this.container.appendChild(this.percentText);
 
     // Status text
     this.statusText = document.createElement('div');
-    this.statusText.style.cssText = `
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 16px;
-      margin-top: 10px;
-      min-height: 24px;
-    `;
+    this.statusText.className = 'ls-status';
     this.statusText.textContent = 'Initializing...';
     this.container.appendChild(this.statusText);
 

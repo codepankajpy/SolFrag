@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "fps-game",
+      "name": "solfrag",
       "dependencies": {
         "@coral-xyz/anchor": "^0.29.0",
         "@dimforge/rapier3d": "^0.19.3",

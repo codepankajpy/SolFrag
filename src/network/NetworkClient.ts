@@ -157,7 +157,9 @@ export class NetworkClient {
   /**
    * Set callback for when connected
    */
-  public onConnected(callback: (playerId: string, username: string, gameState: GameState) => void): void {
+  public onConnected(
+    callback: (playerId: string, username: string, gameState: GameState, matchPda?: string) => void,
+  ): void {
     this.onConnectedCallback = callback;
   }
 
