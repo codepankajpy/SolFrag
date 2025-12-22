@@ -22,6 +22,6 @@ This is the client repository. The complete SolFrag ecosystem includes:
 - **Server**: [SolFrag-Server](https://github.com/code-pankaj/SolFrag-Server) - Handles multiplayer networking and game state synchronization
 - **On-Chain**: [SolFrag-OnChain](https://github.com/code-pankaj/SolFrag-OnChain) - Smart contracts and blockchain integration on Solana
 
-**Deployed Program ID**: `HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51`
+**Deployed Program ID (Devnet)**: `HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51`
 
-[View on Solana Explorer](https://explorer.solana.com/address/HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51)
+[View on Solana Explorer](https://explorer.solana.com/address/HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51?cluster=devnet)
