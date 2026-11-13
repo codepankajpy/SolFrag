@@ -19,8 +19,8 @@ SolFrag delivers smooth, responsive gameplay with real-time multiplayer combat. 
 
 This is the client repository. The complete SolFrag ecosystem includes:
 
-- **Server**: [SolFrag-Server](https://github.com/code-pankaj/SolFrag-Server) - Handles multiplayer networking and game state synchronization
-- **On-Chain**: [SolFrag-OnChain](https://github.com/code-pankaj/SolFrag-OnChain) - Smart contracts and blockchain integration on Solana
+- **Server**: [SolFrag-Server](https://github.com/codepankajpy/SolFrag-Server) - Handles multiplayer networking and game state synchronization
+- **On-Chain**: [SolFrag-OnChain](https://github.com/codepankajpy/SolFrag-OnChain) - Smart contracts and blockchain integration on Solana
 
 **Deployed Program ID (Devnet)**: `HTewvNaFXBYjBnEixXXGUAHwjU2yAJbAAdDfouzm3a51`
 
